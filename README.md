@@ -109,6 +109,56 @@ docker run -it ai-vc-fund --sector "FinTech" --start-date 2024-01-01 --end-date 
 }
 ```
 
+### Running the Hedge Fund
+
+To analyze and act on individual stock tickers:
+
+**Poetry:**
+
+```bash
+poetry run python src/agents.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01
+```
+
+**Example Output:**
+
+```json
+{
+  "action": "buy",
+  "quantity": 50000
+}
+```
+
+### Running the Hedge Fund (with Decisions)
+
+This will print the decisions of each agent to the console:
+
+**Poetry:**
+
+```bash
+poetry run python src/agents.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01 --show-decisions
+```
+
+**Example Output:**
+
+```
+=====         Quant Agent          =====
+Quant Trading Signal: neutral
+Confidence (0-1, higher is better): 0.25
+========================================
+
+=====    Risk Management Agent     =====
+Max Position Size: 5000.0
+Risk Score: 4
+========================================
+
+=====  Portfolio Management Agent  =====
+{
+  "action": "buy",
+  "quantity": 5000
+}
+========================================
+```
+
 ### Running the Backtester
 
 To evaluate the performance of investment strategies on historical data:
@@ -116,26 +166,36 @@ To evaluate the performance of investment strategies on historical data:
 **Poetry:**
 
 ```bash
-poetry run python backtester.py --sector "FinTech" --start-date 2024-01-01 --end-date 2024-03-01
+poetry run python src/backtester.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01
 ```
 
-**Docker:**
+**Example Output:**
 
-```bash
-docker run -it ai-vc-fund backtester.py --sector "FinTech" --start-date 2024-01-01 --end-date 2024-03-01
+```
+Starting backtest...
+Date         Ticker Action Quantity    Price         Cash    Stock  Total Value
+----------------------------------------------------------------------
+2024-01-01   AAPL   buy       519.0   192.53        76.93    519.0    100000.00
+2024-01-02   AAPL   hold          0   185.64        76.93    519.0     96424.09
+2024-01-03   AAPL   hold          0   184.25        76.93    519.0     95702.68
+2024-01-04   AAPL   hold          0   181.91        76.93    519.0     94488.22
+2024-01-05   AAPL   hold          0   181.18        76.93    519.0     94109.35
+2024-01-08   AAPL   sell        519   185.56     96382.57      0.0     96382.57
+2024-01-09   AAPL   buy       520.0   185.14       109.77    520.0     96382.57
 ```
 
 ## Project Structure
 
 ```
 ai-vc-fund/
-├── agents.py            # Main agent definitions and workflow
-├── backtester.py        # Backtesting functionality
-├── tools.py             # Analysis and evaluation tools
-├── requirements.txt     # Python dependencies
-├── pyproject.toml       # Poetry configuration
-├── Dockerfile           # Docker configuration
-└── README.md            # Documentation
+├── src/
+│   ├── agents.py            # Main agent definitions and workflow
+│   ├── backtester.py        # Backtesting functionality
+│   ├── tools.py             # Analysis and evaluation tools
+├── pyproject.toml           # Poetry configuration
+├── .env.example             # Environment variables
+├── Dockerfile               # Docker configuration
+└── README.md                # Documentation
 ```
 
 ## Contributing
