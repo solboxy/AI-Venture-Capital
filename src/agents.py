@@ -38,7 +38,6 @@ def gather_market_data_agent(state: TradingAgentState):
     if not data["start_date"]:
         # Calculate 3 months before end_date
         end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
-        # Adjust for month wrap-around
         if end_date_obj.month > 3:
             start_date_obj = end_date_obj.replace(month=end_date_obj.month - 3)
         else:
@@ -128,7 +127,10 @@ def technical_analysis_agent(state: TradingAgentState):
         f"Quant Trading Signal: {overall_signal}\n"
         f"Confidence (0-1, higher is better): {confidence:.2f}"
     )
-    message = HumanMessage(content=message_content.strip(), name="technical_analysis_agent")
+    message = HumanMessage(
+        content=message_content.strip(),
+        name="technical_analysis_agent",
+    )
 
     # Print the decision if the flag is set
     if show_decisions:
@@ -148,33 +150,34 @@ def risk_evaluation_agent(state: TradingAgentState):
         [
             (
                 "system",
-                """You are a risk management specialist.
-                Your job is to look at the trading analysis and evaluate 
-                portfolio exposure and recommend position sizing.
-                Provide the following in your output (not as a JSON):
+                """You are a risk evaluation specialist.
+                Your job is to review the trading analysis, assess the portfolio exposure,
+                and recommend position sizing. Provide the following in your output (not as JSON):
                 Max Position Size: <float greater than 0>,
-                Risk Score: <integer between 1 and 10>"""
+                Risk Rating: <integer between 1 and 10>,
+                Trading Action: <buy | sell | hold>
+                """
             ),
             MessagesPlaceholder(variable_name="messages"),
             (
                 "human",
                 f"""Based on the trading analysis below, provide your risk assessment.
 
-                Trading Analysis: {last_message.content}
+                Quant Trading Signal: {last_message.content}
 
                 Here is the current portfolio:
                 Portfolio:
                 Cash: ${portfolio['cash']:.2f}
                 Current Position: {portfolio['stock']} shares
 
-                Only include the max position size and risk score in your output.
+                Only include the max position size, risk rating, and recommended trading action in your output.
                 """
             ),
         ]
     )
     chain = risk_prompt | llm
     result = chain.invoke(state).content
-    message_content = f"Risk Management Signal: {result}"
+    message_content = f"Risk Evaluation Signal: {result}"
     message = HumanMessage(content=message_content.strip(), name="risk_evaluation_agent")
 
     # Print the decision if the flag is set
@@ -189,39 +192,39 @@ def final_decision_agent(state: TradingAgentState):
     """Make final trading decisions and generate orders."""
     show_decisions = state["messages"][0].additional_kwargs["show_decisions"]
     portfolio = state["messages"][0].additional_kwargs["portfolio"]
-    last_message = state["messages"][-1]
+    risk_message = state["messages"][-1]
+    quant_message = state["messages"][-2]
 
     portfolio_prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 """You are a portfolio manager making final trading decisions.
-                Your job is to make a trading decision based on the risk data.
-                Provide the following in your output:
+                Your job is to consolidate the team's analysis and produce an action plan.
+                Provide the following in your output as JSON:
                 - "action": "buy" | "sell" | "hold",
-                - "quantity": <positive integer>
-                Only buy if you have available cash.
-                The quantity that you buy must be less than or equal to the max position size.
-                Only sell if you have shares to sell.
-                The quantity that you sell must be less than or equal to the current position."""
+                - "quantity": <positive integer>,
+                - "reasoning": <brief explanation of the decision>
+                Only buy if you have available cash, 
+                and the quantity must be <= max position size.
+                Only sell if you have shares in the portfolio,
+                and the quantity must be <= current position.
+                """
             ),
             MessagesPlaceholder(variable_name="messages"),
             (
                 "human",
-                f"""Based on the risk management data below, make your trading decision.
+                f"""Based on the team's analysis below, make your final trading decision.
 
-                Risk Management Data: {last_message.content}
+                Technical Analysis Team Signal: {quant_message.content}
+                Risk Evaluation Team Signal: {risk_message.content}
 
-                Here is the current portfolio:
-                Portfolio:
+                Current Portfolio:
                 Cash: ${portfolio['cash']:.2f}
-                Current Position: {portfolio['stock']} shares
+                Position: {portfolio['stock']} shares
 
-                Only include the action and quantity in your output as JSON.
-
-                Remember, the action must be either buy, sell, or hold.
-                You can only buy if you have available cash.
-                You can only sell if you have shares in the portfolio to sell.
+                Return your output in JSON (no markdown). 
+                Include "action", "quantity", and "reasoning".
                 """
             ),
         ]
@@ -239,6 +242,7 @@ def final_decision_agent(state: TradingAgentState):
 
 
 def show_agent_decision(output, agent_name):
+    """Utility function for printing agent decisions."""
     print(f"\n{'=' * 5} {agent_name.center(28)} {'=' * 5}")
     print(output)
     print("=" * 40)
@@ -282,7 +286,7 @@ trading_graph.add_node("technical_analysis_agent", technical_analysis_agent)
 trading_graph.add_node("risk_evaluation_agent", risk_evaluation_agent)
 trading_graph.add_node("final_decision_agent", final_decision_agent)
 
-# Define the workflow sequence
+# Define the workflow
 trading_graph.set_entry_point("gather_market_data_agent")
 trading_graph.add_edge("gather_market_data_agent", "technical_analysis_agent")
 trading_graph.add_edge("technical_analysis_agent", "risk_evaluation_agent")
@@ -292,7 +296,6 @@ trading_graph.add_edge("final_decision_agent", END)
 compiled_graph = trading_graph.compile()
 
 
-# Add this at the bottom of the file
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the trading system")
     parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol")
@@ -326,7 +329,7 @@ if __name__ == "__main__":
         except ValueError:
             raise ValueError("End date must be in YYYY-MM-DD format")
 
-    # Sample portfolio - you might want to make this configurable
+    # Sample portfolio (adjust as needed)
     sample_portfolio = {
         "cash": 100000.0,  # $100,000 initial cash
         "stock": 0         # No initial stock position
