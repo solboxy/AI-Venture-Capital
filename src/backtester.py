@@ -1,10 +1,10 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+import argparse
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# Import the renamed function from the updated agents file
-from trading_agents import run_trading_system
-from tools import fetch_price_data
+from src.tools import fetch_price_data
+from src.agents import run_trading_system
 
 
 class TradingBacktester:
@@ -42,7 +42,6 @@ class TradingBacktester:
                     self.account["cash"] -= max_quantity * current_price
                     return max_quantity
                 return 0
-
         elif action == "sell" and quantity > 0:
             quantity = min(quantity, self.account["stock"])
             if quantity > 0:
@@ -50,10 +49,10 @@ class TradingBacktester:
                 self.account["stock"] -= quantity
                 return quantity
             return 0
-
         return 0
 
     def run_agent_backtest(self):
+        """Run the backtesting loop, simulating trades over a range of dates."""
         dates = pd.date_range(self.start_date, self.end_date, freq="B")
 
         print("\nStarting backtest...")
@@ -73,17 +72,17 @@ class TradingBacktester:
             )
 
             action, quantity = self.parse_agent_decision(agent_output)
-
             df = fetch_price_data(self.ticker, lookback_start, current_date_str)
             current_price = df.iloc[-1]["close"]
 
-            # Execute the trade
+            # Execute the trade with validation
             executed_quantity = self.execute_agent_trade(action, quantity, current_price)
 
             # Update total account value
             total_value = self.account["cash"] + self.account["stock"] * current_price
             self.account["portfolio_value"] = total_value
 
+            # Log the current state with executed quantity
             print(
                 f"{current_date.strftime('%Y-%m-%d'):<12} {self.ticker:<6} {action:<6} "
                 f"{executed_quantity:>8} {current_price:>8.2f} {self.account['cash']:>12.2f} "
@@ -96,17 +95,16 @@ class TradingBacktester:
             )
 
     def analyze_agent_performance(self):
-        """Analyze the performance of the backtest and print key metrics."""
-        performance_dataframe = pd.DataFrame(self.account_values).set_index("Date")
+        """Analyze and display the backtest performance metrics."""
+        performance_df = pd.DataFrame(self.account_values).set_index("Date")
 
         # Calculate total return
-        total_return = (
-            self.account["portfolio_value"] - self.initial_capital
-        ) / self.initial_capital
+        total_return = ((self.account["portfolio_value"] - self.initial_capital)
+                        / self.initial_capital)
         print(f"Total Return: {total_return * 100:.2f}%")
 
         # Plot the portfolio value over time
-        performance_dataframe["Portfolio Value"].plot(
+        performance_df["Portfolio Value"].plot(
             title="Portfolio Value Over Time", figsize=(12, 6)
         )
         plt.ylabel("Portfolio Value ($)")
@@ -114,37 +112,55 @@ class TradingBacktester:
         plt.show()
 
         # Compute daily returns
-        performance_dataframe["Daily Return"] = performance_dataframe["Portfolio Value"].pct_change()
+        performance_df["Daily Return"] = performance_df["Portfolio Value"].pct_change()
 
         # Calculate Sharpe Ratio (assuming 252 trading days in a year)
-        mean_daily_return = performance_dataframe["Daily Return"].mean()
-        std_daily_return = performance_dataframe["Daily Return"].std()
+        mean_daily_return = performance_df["Daily Return"].mean()
+        std_daily_return = performance_df["Daily Return"].std()
         sharpe_ratio = (mean_daily_return / std_daily_return) * (252 ** 0.5)
         print(f"Sharpe Ratio: {sharpe_ratio:.2f}")
 
         # Calculate Maximum Drawdown
-        rolling_max = performance_dataframe["Portfolio Value"].cummax()
-        drawdown = performance_dataframe["Portfolio Value"] / rolling_max - 1
+        rolling_max = performance_df["Portfolio Value"].cummax()
+        drawdown = performance_df["Portfolio Value"] / rolling_max - 1
         max_drawdown = drawdown.min()
         print(f"Maximum Drawdown: {max_drawdown * 100:.2f}%")
 
-        return performance_dataframe
+        return performance_df
 
 
 if __name__ == "__main__":
-    # Example usage
-    ticker = "NVDA"
-    start_date = "2024-01-01"
-    end_date = "2024-03-31"
-    initial_capital = 100000
+    parser = argparse.ArgumentParser(description="Run backtesting simulation")
+    parser.add_argument("--ticker", type=str, help="Stock ticker symbol (e.g., AAPL)")
+    parser.add_argument(
+        "--end_date",
+        type=str,
+        default=datetime.now().strftime("%Y-%m-%d"),
+        help="End date in YYYY-MM-DD format"
+    )
+    parser.add_argument(
+        "--start_date",
+        type=str,
+        default=(datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d"),
+        help="Start date in YYYY-MM-DD format"
+    )
+    parser.add_argument(
+        "--initial_capital",
+        type=float,
+        default=100000,
+        help="Initial capital amount (default: 100000)"
+    )
+    args = parser.parse_args()
 
+    # Create an instance of TradingBacktester
     backtester = TradingBacktester(
         trading_agent=run_trading_system,
-        ticker=ticker,
-        start_date=start_date,
-        end_date=end_date,
-        initial_capital=initial_capital,
+        ticker=args.ticker,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        initial_capital=args.initial_capital,
     )
 
+    # Run the backtesting process
     backtester.run_agent_backtest()
-    backtester.analyze_agent_performance()
+    performance_df = backtester.analyze_agent_performance()
