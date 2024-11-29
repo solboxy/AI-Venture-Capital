@@ -17,6 +17,7 @@ from src.tools import (
 
 import argparse
 from datetime import datetime
+import json
 
 llm = ChatOpenAI(model="gpt-4o")
 
@@ -58,12 +59,12 @@ def gather_market_data_agent(state: TradingAgentState):
 ##### 2. Technical Analysis Agent #####
 def technical_analysis_agent(state: TradingAgentState):
     """Analyze technical indicators and generate trading signals."""
-    show_decisions = state["messages"][0].additional_kwargs["show_decisions"]
+    show_reasoning = state["messages"][0].additional_kwargs["show_reasoning"]
 
     data = state["data"]
     prices = data["prices"]
     prices_df = convert_prices_to_dataframe(prices)
-
+    
     # Calculate indicators
     macd_line, signal_line = compute_macd(prices_df)
     rsi = compute_rsi(prices_df)
@@ -75,66 +76,106 @@ def technical_analysis_agent(state: TradingAgentState):
 
     # MACD signal
     if macd_line.iloc[-2] < signal_line.iloc[-2] and macd_line.iloc[-1] > signal_line.iloc[-1]:
-        signals.append('bullish')
+        signals.append("bullish")
     elif macd_line.iloc[-2] > signal_line.iloc[-2] and macd_line.iloc[-1] < signal_line.iloc[-1]:
-        signals.append('bearish')
+        signals.append("bearish")
     else:
-        signals.append('neutral')
+        signals.append("neutral")
 
     # RSI signal
     if rsi.iloc[-1] < 30:
-        signals.append('bullish')
+        signals.append("bullish")
     elif rsi.iloc[-1] > 70:
-        signals.append('bearish')
+        signals.append("bearish")
     else:
-        signals.append('neutral')
+        signals.append("neutral")
 
     # Bollinger Bands signal
-    current_price = prices_df['close'].iloc[-1]
+    current_price = prices_df["close"].iloc[-1]
     if current_price < lower_band.iloc[-1]:
-        signals.append('bullish')
+        signals.append("bullish")
     elif current_price > upper_band.iloc[-1]:
-        signals.append('bearish')
+        signals.append("bearish")
     else:
-        signals.append('neutral')
+        signals.append("neutral")
 
     # OBV signal
     obv_slope = obv.diff().iloc[-5:].mean()
     if obv_slope > 0:
-        signals.append('bullish')
+        signals.append("bullish")
     elif obv_slope < 0:
-        signals.append('bearish')
+        signals.append("bearish")
     else:
-        signals.append('neutral')
+        signals.append("neutral")
+
+    # Collect reasoning details
+    reasoning = {
+        "MACD": {
+            "signal": signals[0],
+            "details": (
+                "MACD Line crossed above Signal Line"
+                if signals[0] == "bullish"
+                else "MACD Line crossed below Signal Line"
+                if signals[0] == "bearish"
+                else "No crossover"
+            ),
+        },
+        "RSI": {
+            "signal": signals[1],
+            "details": (
+                f"RSI is {rsi.iloc[-1]:.2f} (oversold)"
+                if signals[1] == "bullish"
+                else f"RSI is {rsi.iloc[-1]:.2f} (overbought)"
+                if signals[1] == "bearish"
+                else f"RSI is {rsi.iloc[-1]:.2f} (neutral)"
+            ),
+        },
+        "Bollinger": {
+            "signal": signals[2],
+            "details": (
+                "Price is below lower band"
+                if signals[2] == "bullish"
+                else "Price is above upper band"
+                if signals[2] == "bearish"
+                else "Price is within bands"
+            ),
+        },
+        "OBV": {
+            "signal": signals[3],
+            "details": f"OBV slope is {obv_slope:.2f} ({signals[3]})",
+        },
+    }
 
     # Determine overall signal
-    bullish_signals = signals.count('bullish')
-    bearish_signals = signals.count('bearish')
-
+    bullish_signals = signals.count("bullish")
+    bearish_signals = signals.count("bearish")
     if bullish_signals > bearish_signals:
-        overall_signal = 'bullish'
+        overall_signal = "bullish"
     elif bearish_signals > bullish_signals:
-        overall_signal = 'bearish'
+        overall_signal = "bearish"
     else:
-        overall_signal = 'neutral'
+        overall_signal = "neutral"
 
     # Calculate confidence level
     total_signals = len(signals)
     confidence = max(bullish_signals, bearish_signals) / total_signals
 
-    # Create the technical analysis agent's message
-    message_content = (
-        f"Quant Trading Signal: {overall_signal}\n"
-        f"Confidence (0-1, higher is better): {confidence:.2f}"
-    )
+    # Generate the message content
+    message_content = {
+        "signal": overall_signal,
+        "confidence": round(confidence, 2),
+        "reasoning": reasoning,
+    }
+
+    # Create the technical analysis message
     message = HumanMessage(
-        content=message_content.strip(),
+        content=json.dumps(message_content),  # Convert dict to JSON string
         name="technical_analysis_agent",
     )
 
-    # Print the decision if the flag is set
-    if show_decisions:
-        show_agent_decision(message.content, "Technical Analysis Agent")
+    # Print the reasoning if the flag is set
+    if show_reasoning:
+        show_agent_reasoning(message_content, "Technical Analysis Agent")
 
     return {"messages": state["messages"] + [message], "data": data}
 
@@ -142,47 +183,61 @@ def technical_analysis_agent(state: TradingAgentState):
 ##### 3. Risk Evaluation Agent #####
 def risk_evaluation_agent(state: TradingAgentState):
     """Evaluate portfolio risk and set position limits."""
-    show_decisions = state["messages"][0].additional_kwargs["show_decisions"]
+    show_reasoning = state["messages"][0].additional_kwargs["show_reasoning"]
     portfolio = state["messages"][0].additional_kwargs["portfolio"]
-    last_message = state["messages"][-1]
+    technical_message = state["messages"][-1]
 
-    risk_prompt = ChatPromptTemplate.from_messages(
+    # Create the prompt template
+    template = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 """You are a risk evaluation specialist.
-                Your job is to review the trading analysis, assess the portfolio exposure,
-                and recommend position sizing. Provide the following in your output (not as JSON):
-                Max Position Size: <float greater than 0>,
-                Risk Rating: <integer between 1 and 10>,
-                Trading Action: <buy | sell | hold>
-                """
+                Your job is to assess the trading analysis and recommend position sizing.
+                Return the following in JSON (no markdown):
+                "max_position_size": <float>,
+                "risk_rating": <integer between 1 and 10>,
+                "trading_action": <"buy"|"sell"|"hold">,
+                "reasoning": <concise explanation>"""
             ),
-            MessagesPlaceholder(variable_name="messages"),
             (
                 "human",
-                f"""Based on the trading analysis below, provide your risk assessment.
+                """Quant Analysis:
+                {technical_message}
 
-                Quant Trading Signal: {last_message.content}
+                Current Portfolio:
+                - Cash: {portfolio_cash}
+                - Position: {portfolio_stock} shares
 
-                Here is the current portfolio:
-                Portfolio:
-                Cash: ${portfolio['cash']:.2f}
-                Current Position: {portfolio['stock']} shares
-
-                Only include the max position size, risk rating, and recommended trading action in your output.
+                Please provide the max position size, risk rating, recommended trading action,
+                and reasoning in JSON, without markdown. For example:
+                {
+                  "max_position_size": 1234.56,
+                  "risk_rating": 7,
+                  "trading_action": "buy",
+                  "reasoning": "Your short reasoning here"
+                }
                 """
             ),
         ]
     )
-    chain = risk_prompt | llm
-    result = chain.invoke(state).content
-    message_content = f"Risk Evaluation Signal: {result}"
-    message = HumanMessage(content=message_content.strip(), name="risk_evaluation_agent")
 
-    # Print the decision if the flag is set
-    if show_decisions:
-        show_agent_decision(message.content, "Risk Evaluation Agent")
+    # Generate the prompt
+    prompt = template.invoke(
+        {
+            "technical_message": technical_message.content,
+            "portfolio_cash": f"{portfolio['cash']:.2f}",
+            "portfolio_stock": portfolio["stock"],
+        }
+    )
+
+    # Invoke the LLM
+    result = llm.invoke(prompt)
+    message = HumanMessage(content=result.content, name="risk_evaluation_agent")
+
+    # Print the reasoning if the flag is set
+    if show_reasoning:
+        show_agent_reasoning(message.content, "Risk Evaluation Agent")
 
     return {"messages": state["messages"] + [message]}
 
@@ -190,62 +245,83 @@ def risk_evaluation_agent(state: TradingAgentState):
 ##### 4. Final Decision Agent #####
 def final_decision_agent(state: TradingAgentState):
     """Make final trading decisions and generate orders."""
-    show_decisions = state["messages"][0].additional_kwargs["show_decisions"]
+    show_reasoning = state["messages"][0].additional_kwargs["show_reasoning"]
     portfolio = state["messages"][0].additional_kwargs["portfolio"]
     risk_message = state["messages"][-1]
-    quant_message = state["messages"][-2]
+    technical_message = state["messages"][-2]
 
-    portfolio_prompt = ChatPromptTemplate.from_messages(
+    # Create the prompt template
+    template = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
                 """You are a portfolio manager making final trading decisions.
-                Your job is to consolidate the team's analysis and produce an action plan.
-                Provide the following in your output as JSON:
-                - "action": "buy" | "sell" | "hold",
-                - "quantity": <positive integer>,
-                - "reasoning": <brief explanation of the decision>
-                Only buy if you have available cash, 
-                and the quantity must be <= max position size.
-                Only sell if you have shares in the portfolio,
-                and the quantity must be <= current position.
-                """
+                You will consolidate the analysis from the technical and risk evaluation teams.
+                Return your decision in JSON with:
+                {
+                  "action": "buy"|"sell"|"hold",
+                  "quantity": <positive integer>,
+                  "reasoning": "<brief explanation>"
+                }
+                Only buy if you have enough cash, and keep quantity <= max position size.
+                Only sell if you have shares, and keep quantity <= current position."""
             ),
-            MessagesPlaceholder(variable_name="messages"),
             (
                 "human",
-                f"""Based on the team's analysis below, make your final trading decision.
+                """Technical Analysis: {technical_message}
+                Risk Evaluation: {risk_message}
 
-                Technical Analysis Team Signal: {quant_message.content}
-                Risk Evaluation Team Signal: {risk_message.content}
+                Portfolio:
+                Cash: {portfolio_cash}
+                Position: {portfolio_stock} shares
 
-                Current Portfolio:
-                Cash: ${portfolio['cash']:.2f}
-                Position: {portfolio['stock']} shares
-
-                Return your output in JSON (no markdown). 
-                Include "action", "quantity", and "reasoning".
-                """
+                Return your decision as JSON only (no markdown). For example:
+                {
+                  "action": "buy",
+                  "quantity": 100,
+                  "reasoning": "example"
+                }"""
             ),
         ]
     )
 
-    chain = portfolio_prompt | llm
-    result = chain.invoke(state).content
-    message = HumanMessage(content=result, name="final_decision_agent")
+    # Generate the prompt
+    prompt = template.invoke(
+        {
+            "technical_message": technical_message.content,
+            "risk_message": risk_message.content,
+            "portfolio_cash": f"{portfolio['cash']:.2f}",
+            "portfolio_stock": portfolio["stock"],
+        }
+    )
+    # Invoke the LLM
+    result = llm.invoke(prompt)
+
+    # Create the final decision message
+    message = HumanMessage(content=result.content, name="final_decision_agent")
 
     # Print the decision if the flag is set
-    if show_decisions:
-        show_agent_decision(message.content, "Final Decision Agent")
+    if show_reasoning:
+        show_agent_reasoning(message.content, "Final Decision Agent")
 
     return {"messages": state["messages"] + [message]}
 
 
-def show_agent_decision(output, agent_name):
+def show_agent_reasoning(output, agent_name):
     """Utility function for printing agent decisions."""
-    print(f"\n{'=' * 5} {agent_name.center(28)} {'=' * 5}")
-    print(output)
-    print("=" * 40)
+    print(f"\n{'=' * 10} {agent_name.center(40)} {'=' * 10}")
+    if isinstance(output, (dict, list)):
+        # If output is a dictionary or list, just pretty print it
+        print(json.dumps(output, indent=2))
+    else:
+        try:
+            # Attempt to parse string as JSON, then pretty print
+            parsed_output = json.loads(output)
+            print(json.dumps(parsed_output, indent=2))
+        except json.JSONDecodeError:
+            # Otherwise, just print raw string
+            print(output)
+    print("=" * 60)
 
 
 ##### Run the Trading System #####
@@ -254,7 +330,7 @@ def run_trading_system(
     start_date: str,
     end_date: str,
     portfolio: dict,
-    show_decisions: bool = False
+    show_reasoning: bool = False
 ):
     final_state = compiled_graph.invoke(
         {
@@ -263,7 +339,7 @@ def run_trading_system(
                     content="Make a trading decision based on the provided data.",
                     additional_kwargs={
                         "portfolio": portfolio,
-                        "show_decisions": show_decisions,
+                        "show_reasoning": show_reasoning,
                     },
                 )
             ],
@@ -297,7 +373,7 @@ compiled_graph = trading_graph.compile()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the trading system")
+    parser = argparse.ArgumentParser(description="Run the hedge fund trading system")
     parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol")
     parser.add_argument(
         "--start-date",
@@ -310,9 +386,9 @@ if __name__ == "__main__":
         help="End date (YYYY-MM-DD). Defaults to today"
     )
     parser.add_argument(
-        "--show-decisions",
+        "--show-reasoning",
         action="store_true",
-        help="Show decisions from each agent"
+        help="Show reasoning from each agent"
     )
     args = parser.parse_args()
 
@@ -329,18 +405,18 @@ if __name__ == "__main__":
         except ValueError:
             raise ValueError("End date must be in YYYY-MM-DD format")
 
-    # Sample portfolio (adjust as needed)
+    # Sample portfolio
     sample_portfolio = {
         "cash": 100000.0,  # $100,000 initial cash
         "stock": 0         # No initial stock position
     }
 
-    result = run_trading_system(
+    final_decision = run_trading_system(
         ticker=args.ticker,
         start_date=args.start_date,
         end_date=args.end_date,
         portfolio=sample_portfolio,
-        show_decisions=args.show_decisions
+        show_reasoning=args.show_reasoning
     )
     print("\nFinal Result:")
-    print(result)
+    print(final_decision)
