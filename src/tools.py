@@ -2,6 +2,7 @@ import os
 import requests
 import pandas as pd
 
+
 def fetch_prices(ticker, start_date, end_date):
     """Fetch price data from an external API."""
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
@@ -43,13 +44,40 @@ def fetch_price_data(ticker, start_date, end_date):
     return convert_prices_to_dataframe(prices)
 
 
-def compute_bollinger_bands(prices_df, window=20):
-    """Compute Bollinger Bands."""
-    sma = prices_df["close"].rolling(window).mean()
-    std_dev = prices_df["close"].rolling(window).std()
-    upper_band = sma + (std_dev * 2)
-    lower_band = sma - (std_dev * 2)
-    return upper_band, lower_band
+def fetch_financial_metrics(ticker, report_period, period="ttm", limit=1):
+    """Fetch financial metrics from the API."""
+    headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
+    url = (
+        f"https://api.financialdatasets.ai/financial-metrics/"
+        f"?ticker={ticker}"
+        f"&report_period_lte={report_period}"
+        f"&limit={limit}"
+        f"&period={period}"
+    )
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(
+            f"Error fetching financial metrics: {response.status_code} - {response.text}"
+        )
+    data = response.json()
+    financial_metrics = data.get("financial_metrics")
+    if not financial_metrics:
+        raise ValueError("No financial metrics returned")
+    return financial_metrics
+
+
+def compute_confidence_level(signals):
+    """
+    Compute confidence level based on the difference between SMAs (Simple Moving Averages).
+    
+    The confidence is normalized between 0 and 1.
+    """
+    sma_diff_prev = abs(signals["sma_5_prev"] - signals["sma_20_prev"])
+    sma_diff_curr = abs(signals["sma_5_curr"] - signals["sma_20_curr"])
+    diff_change = sma_diff_curr - sma_diff_prev
+    # Normalize confidence between 0 and 1
+    confidence = min(max(diff_change / signals["current_price"], 0), 1)
+    return confidence
 
 
 def compute_macd(prices_df):
@@ -71,6 +99,15 @@ def compute_rsi(prices_df, period=14):
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
     return rsi
+
+
+def compute_bollinger_bands(prices_df, window=20):
+    """Compute Bollinger Bands."""
+    sma = prices_df["close"].rolling(window).mean()
+    std_dev = prices_df["close"].rolling(window).std()
+    upper_band = sma + (std_dev * 2)
+    lower_band = sma - (std_dev * 2)
+    return upper_band, lower_band
 
 
 def compute_obv(prices_df):
