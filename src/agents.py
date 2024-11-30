@@ -575,7 +575,7 @@ app = workflow.compile()
 # Add this at the bottom of the file
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the hedge fund trading system")
-    parser.add_argument("--ticker", type=str, help="Stock ticker symbol")
+    parser.add_argument("--ticker", type=str,required=True, help="Stock ticker symbol")
     parser.add_argument(
         "--start-date",
         type=str,
@@ -614,7 +614,7 @@ if __name__ == "__main__":
 
     final_decision = run_hedge_fund(
         # For demonstration purposes, specifying a default ticker like 'AAPL'.
-        ticker=args.ticker if args.ticker else 'AAPL',
+        ticker=args.ticker,
         start_date=args.start_date,
         end_date=args.end_date,
         portfolio=portfolio,
