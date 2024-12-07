@@ -1,9 +1,11 @@
 import os
 import requests
 import pandas as pd
+from typing import Dict, Union
+from tavily import TavilyClient
 
 
-def fetch_prices(ticker, start_date, end_date):
+def fetch_prices(ticker: str, start_date: str, end_date: str):
     """Fetch price data from an external API."""
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = (
@@ -38,14 +40,14 @@ def convert_prices_to_dataframe(prices):
     return df
 
 
-def fetch_price_data(ticker, start_date, end_date):
-    """Utility function that combines fetching and converting to a DataFrame."""
+def fetch_price_data(ticker: str, start_date: str, end_date: str):
+    """Utility function to fetch raw price data and convert it into a DataFrame."""
     prices = fetch_prices(ticker, start_date, end_date)
     return convert_prices_to_dataframe(prices)
 
 
-def fetch_financial_metrics(ticker, report_period, period="ttm", limit=1):
-    """Fetch financial metrics from the API."""
+def fetch_financial_metrics(ticker: str, report_period: str, period: str = "ttm", limit: int = 1):
+    """Fetch financial metrics from the external API."""
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = (
         f"https://api.financialdatasets.ai/financial-metrics/"
@@ -66,21 +68,30 @@ def fetch_financial_metrics(ticker, report_period, period="ttm", limit=1):
     return financial_metrics
 
 
-def compute_confidence_level(signals):
+def fetch_market_news(query: str, max_results: int = 3) -> Union[Dict, str]:
+    """
+    Perform a web search using the Tavily API to retrieve market news.
+    Returns up-to-date articles and news references.
+    """
+    client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
+    response = client.search(query, max_results=max_results)
+    return response
+
+
+def compute_confidence_level(signals: Dict[str, float]) -> float:
     """
     Compute confidence level based on the difference between SMAs (Simple Moving Averages).
-    
+
     The confidence is normalized between 0 and 1.
     """
     sma_diff_prev = abs(signals["sma_5_prev"] - signals["sma_20_prev"])
     sma_diff_curr = abs(signals["sma_5_curr"] - signals["sma_20_curr"])
     diff_change = sma_diff_curr - sma_diff_prev
-    # Normalize confidence between 0 and 1
     confidence = min(max(diff_change / signals["current_price"], 0), 1)
     return confidence
 
 
-def compute_macd(prices_df):
+def compute_macd(prices_df: pd.DataFrame):
     """Compute MACD (Moving Average Convergence Divergence) and its signal line."""
     ema_12 = prices_df["close"].ewm(span=12, adjust=False).mean()
     ema_26 = prices_df["close"].ewm(span=26, adjust=False).mean()
@@ -89,7 +100,7 @@ def compute_macd(prices_df):
     return macd_line, signal_line
 
 
-def compute_rsi(prices_df, period=14):
+def compute_rsi(prices_df: pd.DataFrame, period: int = 14):
     """Compute RSI (Relative Strength Index)."""
     delta = prices_df["close"].diff()
     gain = (delta.where(delta > 0, 0)).fillna(0)
@@ -101,8 +112,8 @@ def compute_rsi(prices_df, period=14):
     return rsi
 
 
-def compute_bollinger_bands(prices_df, window=20):
-    """Compute Bollinger Bands."""
+def compute_bollinger_bands(prices_df: pd.DataFrame, window: int = 20):
+    """Compute Bollinger Bands for a given window size."""
     sma = prices_df["close"].rolling(window).mean()
     std_dev = prices_df["close"].rolling(window).std()
     upper_band = sma + (std_dev * 2)
@@ -110,7 +121,7 @@ def compute_bollinger_bands(prices_df, window=20):
     return upper_band, lower_band
 
 
-def compute_obv(prices_df):
+def compute_obv(prices_df: pd.DataFrame):
     """Compute OBV (On-Balance Volume)."""
     obv = [0]
     for i in range(1, len(prices_df)):
