@@ -1,9 +1,8 @@
-from functools import reduce
 from typing import Annotated, Any, Dict, Sequence, TypedDict
 
 import operator
 from langchain_core.messages import BaseMessage, HumanMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai.chat_models import ChatOpenAI
 from langgraph.graph import END, StateGraph
 
