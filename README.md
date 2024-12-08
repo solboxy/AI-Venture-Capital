@@ -1,26 +1,29 @@
 # AI Venture Capital Fund
 
-An AI-powered venture capital fund leveraging advanced agents to discover, evaluate, and execute investment opportunities. This system comprises multiple specialized agents working collaboratively:
+An AI-driven venture capital fund leveraging cutting-edge agents to identify, evaluate, and execute investment opportunities. This system is powered by a collaborative network of specialized agents:
 
-1. **Market Intelligence Agent** - Collects and processes data on startups, industries, and emerging market trends.
-2. **Quantitative Analysis Agent** - Assesses financial metrics, growth potential, and product-market fit.
-3. **Risk Evaluation Agent** - Examines potential risks and develops diversification strategies.
-4. **Portfolio Management Agent** - Finalizes investment decisions and optimizes portfolio allocations.
+1. **Market Intelligence Agent** - Gathers and analyzes data on startups, industries, and emerging trends.
+2. **Quantitative Analysis Agent** - Evaluates financial performance, scalability, and market potential.
+3. **Risk Evaluation Agent** - Identifies potential risks and formulates mitigation strategies.
+4. **Portfolio Management Agent** - Manages investment decisions and ensures optimal portfolio allocation.
+5. **Sentiment Analysis Agent** - Monitors public sentiment and media trends for additional insights.
+6. **Fundamentals Evaluation Agent** - Assesses underlying business fundamentals for sound investment decisions.
 
 ## Key Features
 
-- **Collaborative multi-agent framework** for data-driven investment strategies.
-- **Comprehensive startup evaluation** using indicators like revenue growth, profitability, and market size.
-- **Dynamic risk management** with scenario simulations and position sizing.
-- **Portfolio optimization** using quantitative and qualitative insights.
-- **Backtesting tools** to evaluate past performance.
-- **Support for diverse industries and sectors.**
+- **Comprehensive multi-agent system** for intelligent, data-backed investments.
+- **In-depth startup evaluation** leveraging key performance indicators like revenue, market growth, and customer acquisition.
+- **Advanced sentiment tracking** for a holistic understanding of market dynamics.
+- **Risk-adjusted decision-making** with robust scenario planning.
+- **Portfolio optimization tools** that blend quantitative and qualitative inputs.
+- **Backtesting engine** to assess strategy effectiveness.
+- **Support for a diverse range of industries and sectors.**
 
 ## Prerequisites
 
 - Python 3.9+
-- Poetry or Docker (recommended for environment setup)
-- API keys for external services (e.g., OpenAI, financial data providers)
+- Poetry or Docker (preferred for environment setup)
+- API keys for services like OpenAI and financial data providers
 
 ## Setup
 
@@ -90,7 +93,7 @@ cd ai-vc-fund
 
 ### Running the System
 
-To analyze investment opportunities:
+To evaluate investment opportunities:
 
 **Poetry:**
 
@@ -117,7 +120,7 @@ docker run -it ai-vc-fund --sector "Healthcare" --start-date 2024-01-01 --end-da
 
 ### Running Backtests
 
-Evaluate past strategies with historical data:
+Evaluate historical strategies using backtesting:
 
 **Poetry:**
 
@@ -138,7 +141,7 @@ Date         Sector    Action    Amount       Cash       Portfolio Value
 
 ### Analyzing Agent Decisions
 
-Gain insights into agent-specific recommendations:
+Gain insights into agent-specific reasoning:
 
 ```bash
 poetry run python src/agents.py --sector "AI" --show-decisions
@@ -167,6 +170,16 @@ Max Allocation: $500,000
 Action: Invest
 Amount: $450,000
 Reasoning: Favorable metrics with manageable risks.
+========================================
+
+===== Sentiment Analysis Agent =====
+Sentiment Score: Positive (0.78)
+Signal: Invest
+=====================================
+
+===== Fundamentals Evaluation Agent =====
+Business Metrics: Solid
+Recommendation: Invest $300,000
 ========================================
 ```
 
