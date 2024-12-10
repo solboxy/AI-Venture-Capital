@@ -72,9 +72,12 @@ def gather_market_data_agent(state: TradingAgentState):
 
     # Fetch recent market news
     market_news = fetch_market_news(
-        query=f"Latest {data['ticker']} market news",
-        max_results=3,
+       query=f"Show me {data['ticker']} news before {end_date} only.",
+        end_date=end_date,
+        max_results=5,
     )
+    
+     
 
     return {
         "messages": messages,

@@ -29,7 +29,7 @@ def fetch_prices(ticker: str, start_date: str, end_date: str):
 
 
 def convert_prices_to_dataframe(prices):
-    """Convert fetched prices to a pandas DataFrame."""
+    """Convert fetched prices to a Pandas DataFrame."""
     df = pd.DataFrame(prices)
     df["Date"] = pd.to_datetime(df["time"])
     df.set_index("Date", inplace=True)
@@ -41,7 +41,7 @@ def convert_prices_to_dataframe(prices):
 
 
 def fetch_price_data(ticker: str, start_date: str, end_date: str):
-    """Utility function to fetch raw price data and convert it into a DataFrame."""
+    """Utility function that fetches raw prices and converts them into a DataFrame."""
     prices = fetch_prices(ticker, start_date, end_date)
     return convert_prices_to_dataframe(prices)
 
@@ -68,25 +68,40 @@ def fetch_financial_metrics(ticker: str, report_period: str, period: str = "ttm"
     return financial_metrics
 
 
-def fetch_market_news(query: str, max_results: int = 3) -> Union[Dict, str]:
+def fetch_news(query: str, end_date: str, max_results: int = 5) -> Union[Dict, str]:
     """
-    Perform a web search using the Tavily API to retrieve market news.
-    Returns up-to-date articles and news references.
+    Perform a web search using the Tavily API to retrieve news articles.
+
+    Returns up-to-date results filtered by end_date, ensuring only items published on or before end_date are included.
     """
+    from datetime import datetime
+
     client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
-    response = client.search(query, max_results=max_results)
+    response = client.search(query, topic="news", max_results=max_results)
+
+    # Convert end_date string to datetime object
+    end_date_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+    # Filter results by published_date if present
+    if "results" in response:
+        filtered_results = []
+        for result in response["results"]:
+            if "published_date" in result:
+                pub_date = datetime.strptime(result["published_date"], "%a, %d %b %Y %H:%M:%S %Z")
+                if pub_date.date() <= end_date_dt.date():
+                    filtered_results.append(result)
+
+        response["results"] = filtered_results
+
     return response
 
 
 def compute_confidence_level(signals: Dict[str, float]) -> float:
-    """
-    Compute confidence level based on the difference between SMAs (Simple Moving Averages).
-
-    The confidence is normalized between 0 and 1.
-    """
+    """Compute a confidence level based on the difference between SMAs (Simple Moving Averages)."""
     sma_diff_prev = abs(signals["sma_5_prev"] - signals["sma_20_prev"])
     sma_diff_curr = abs(signals["sma_5_curr"] - signals["sma_20_curr"])
     diff_change = sma_diff_curr - sma_diff_prev
+    # Normalize confidence between 0 and 1
     confidence = min(max(diff_change / signals["current_price"], 0), 1)
     return confidence
 
@@ -113,7 +128,7 @@ def compute_rsi(prices_df: pd.DataFrame, period: int = 14):
 
 
 def compute_bollinger_bands(prices_df: pd.DataFrame, window: int = 20):
-    """Compute Bollinger Bands for a given window size."""
+    """Compute Bollinger Bands with a given window size."""
     sma = prices_df["close"].rolling(window).mean()
     std_dev = prices_df["close"].rolling(window).std()
     upper_band = sma + (std_dev * 2)
