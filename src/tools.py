@@ -1,9 +1,6 @@
 import os
 import requests
 import pandas as pd
-from typing import Dict, Union
-from tavily import TavilyClient
-
 
 def fetch_prices(ticker: str, start_date: str, end_date: str):
     """Fetch price data from an external API."""
@@ -19,7 +16,7 @@ def fetch_prices(ticker: str, start_date: str, end_date: str):
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise Exception(
-            f"Error fetching data: {response.status_code} - {response.text}"
+            f"Error fetching price data: {response.status_code} - {response.text}"
         )
     data = response.json()
     prices = data.get("prices")
@@ -41,7 +38,7 @@ def convert_prices_to_dataframe(prices):
 
 
 def fetch_price_data(ticker: str, start_date: str, end_date: str):
-    """Utility function that fetches raw prices and converts them into a DataFrame."""
+    """Utility function that fetches raw price data and converts it into a DataFrame."""
     prices = fetch_prices(ticker, start_date, end_date)
     return convert_prices_to_dataframe(prices)
 
@@ -68,39 +65,33 @@ def fetch_financial_metrics(ticker: str, report_period: str, period: str = "ttm"
     return financial_metrics
 
 
-def fetch_news(query: str, end_date: str, max_results: int = 5) -> Union[Dict, str]:
-    """
-    Perform a web search using the Tavily API to retrieve news articles.
-
-    Returns up-to-date results filtered by end_date, ensuring only items published on or before end_date are included.
-    """
-    from datetime import datetime
-
-    client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
-    response = client.search(query, topic="news", max_results=max_results)
-
-    # Convert end_date string to datetime object
-    end_date_dt = datetime.strptime(end_date, "%Y-%m-%d")
-
-    # Filter results by published_date if present
-    if "results" in response:
-        filtered_results = []
-        for result in response["results"]:
-            if "published_date" in result:
-                pub_date = datetime.strptime(result["published_date"], "%a, %d %b %Y %H:%M:%S %Z")
-                if pub_date.date() <= end_date_dt.date():
-                    filtered_results.append(result)
-
-        response["results"] = filtered_results
-
-    return response
+def fetch_insider_trades(ticker: str, start_date: str, end_date: str):
+    """Fetch insider trades for a given ticker and date range."""
+    headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
+    url = (
+        f"https://api.financialdatasets.ai/insider-trades/"
+        f"?ticker={ticker}"
+        f"&filing_date_gte={start_date}"
+        f"&filing_date_lte={end_date}"
+    )
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise Exception(
+            f"Error fetching insider trades: {response.status_code} - {response.text}"
+        )
+    data = response.json()
+    insider_trades = data.get("insider_trades")
+    if not insider_trades:
+        raise ValueError("No insider trades returned")
+    return insider_trades
 
 
-def compute_confidence_level(signals: Dict[str, float]) -> float:
-    """Compute a confidence level based on the difference between SMAs (Simple Moving Averages)."""
+def compute_confidence_level(signals: dict) -> float:
+    """Compute confidence level based on the difference between SMAs (Simple Moving Averages)."""
     sma_diff_prev = abs(signals["sma_5_prev"] - signals["sma_20_prev"])
     sma_diff_curr = abs(signals["sma_5_curr"] - signals["sma_20_curr"])
     diff_change = sma_diff_curr - sma_diff_prev
+
     # Normalize confidence between 0 and 1
     confidence = min(max(diff_change / signals["current_price"], 0), 1)
     return confidence
@@ -128,7 +119,7 @@ def compute_rsi(prices_df: pd.DataFrame, period: int = 14):
 
 
 def compute_bollinger_bands(prices_df: pd.DataFrame, window: int = 20):
-    """Compute Bollinger Bands with a given window size."""
+    """Compute Bollinger Bands."""
     sma = prices_df["close"].rolling(window).mean()
     std_dev = prices_df["close"].rolling(window).std()
     upper_band = sma + (std_dev * 2)
