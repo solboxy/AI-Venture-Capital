@@ -9,6 +9,8 @@ An AI-driven venture capital fund leveraging cutting-edge agents to identify, ev
 5. **Sentiment Analysis Agent** - Monitors public sentiment and media trends for additional insights.
 6. **Fundamentals Evaluation Agent** - Assesses underlying business fundamentals for sound investment decisions.
 
+<img width="1025" alt="Screenshot" src="https://github.com/user-attachments/assets/6e51851c-b4ee-4463-a016-3e9d7b886e7e">
+
 ## Key Features
 
 - **Comprehensive multi-agent system** for intelligent, data-backed investments.
