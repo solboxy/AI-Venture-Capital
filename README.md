@@ -2,6 +2,8 @@
 
 An AI-driven venture capital fund leveraging cutting-edge agents to identify, evaluate, and execute investment opportunities. This system is powered by a collaborative network of specialized agents:
 
+The goal of this project is to have a Venture Capital Fund fully that runs fully autonomously
+
 1. **Market Intelligence Agent** - Collects and processes market data on startups, industries, and emerging trends.
 2. **Quantitative Analysis Agent** - Evaluates financial performance, scalability, and market potential of startups.
 3. **Risk Evaluation Agent** - Identifies risks and develops mitigation strategies.
