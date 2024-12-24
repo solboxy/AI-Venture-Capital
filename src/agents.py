@@ -15,13 +15,13 @@ from src.tools import (
     fetch_financial_metrics,
     fetch_insider_trades,
     fetch_market_cap,
-    fetch_cash_flow_statements,
+    fetch_line_items,
     convert_prices_to_dataframe,
     compute_bollinger_bands,
+    compute_intrinsic_value,
     compute_macd,
     compute_obv,
-    compute_rsi,
-    compute_intrinsic_value
+    compute_rsi
 )
 
 llm = ChatOpenAI(model="gpt-4o")
@@ -41,7 +41,7 @@ class TradingAgentState(TypedDict):
 
 ##### 1. Gather Market Data Agent #####
 def gather_market_data_agent(state: TradingAgentState):
-    """Gather and preprocess market data (prices, financials, insider trades, market cap, cash flow)."""
+    """Gather and preprocess market data (prices, financial metrics, insider trades, etc.)."""
     messages = state["messages"]
     data = state["data"]
 
@@ -59,7 +59,7 @@ def gather_market_data_agent(state: TradingAgentState):
     else:
         start_date = data["start_date"]
 
-    # Fetch historical prices
+    # Fetch historical price data
     prices = fetch_prices(
         ticker=data["ticker"],
         start_date=start_date,
@@ -77,7 +77,6 @@ def gather_market_data_agent(state: TradingAgentState):
     # Fetch insider trades
     insider_trades = fetch_insider_trades(
         ticker=data["ticker"],
-        start_date=start_date,
         end_date=end_date,
         max_results=5,
     )
@@ -85,10 +84,10 @@ def gather_market_data_agent(state: TradingAgentState):
     # Fetch market cap
     market_cap = fetch_market_cap(ticker=data["ticker"])
 
-    # Fetch cash flow statements
-    cash_flow_statements = fetch_cash_flow_statements(
+    # Fetch specific line items (e.g., free cash flow)
+    financial_line_items = fetch_line_items(
         ticker=data["ticker"],
-        end_date=end_date,
+        line_items=["free_cash_flow"],
         period="ttm",
         max_results=1,
     )
@@ -103,7 +102,7 @@ def gather_market_data_agent(state: TradingAgentState):
             "financial_metrics": financial_metrics,
             "insider_trades": insider_trades,
             "market_cap": market_cap,
-            "cash_flow_statements": cash_flow_statements,
+            "financial_line_items": financial_line_items,
         },
     }
 
@@ -124,7 +123,7 @@ def technical_analysis_agent(state: TradingAgentState):
     # Generate signals
     signals = []
 
-    # 1. MACD Signal
+    # MACD
     if macd_line.iloc[-2] < signal_line.iloc[-2] and macd_line.iloc[-1] > signal_line.iloc[-1]:
         signals.append("bullish")
     elif macd_line.iloc[-2] > signal_line.iloc[-2] and macd_line.iloc[-1] < signal_line.iloc[-1]:
@@ -132,7 +131,7 @@ def technical_analysis_agent(state: TradingAgentState):
     else:
         signals.append("neutral")
 
-    # 2. RSI Signal
+    # RSI
     if rsi_values.iloc[-1] < 30:
         signals.append("bullish")
     elif rsi_values.iloc[-1] > 70:
@@ -140,7 +139,7 @@ def technical_analysis_agent(state: TradingAgentState):
     else:
         signals.append("neutral")
 
-    # 3. Bollinger Bands Signal
+    # Bollinger Bands
     current_price = prices_df["close"].iloc[-1]
     if current_price < lower_band.iloc[-1]:
         signals.append("bullish")
@@ -149,7 +148,7 @@ def technical_analysis_agent(state: TradingAgentState):
     else:
         signals.append("neutral")
 
-    # 4. OBV Signal
+    # OBV
     obv_slope = obv_values.diff().iloc[-5:].mean()
     if obv_slope > 0:
         signals.append("bullish")
@@ -163,9 +162,9 @@ def technical_analysis_agent(state: TradingAgentState):
         "MACD": {
             "signal": signals[0],
             "details": (
-                "MACD Line crossed above the Signal Line"
+                "MACD Line crossed above Signal Line"
                 if signals[0] == "bullish"
-                else "MACD Line crossed below the Signal Line"
+                else "MACD Line crossed below Signal Line"
                 if signals[0] == "bearish"
                 else "No crossover"
             ),
@@ -196,7 +195,7 @@ def technical_analysis_agent(state: TradingAgentState):
         },
     }
 
-    # Overall signal + confidence
+    # Determine overall signal + confidence
     bullish_signals = signals.count("bullish")
     bearish_signals = signals.count("bearish")
     if bullish_signals > bearish_signals:
@@ -207,32 +206,34 @@ def technical_analysis_agent(state: TradingAgentState):
         overall_signal = "neutral"
 
     total_signals = len(signals)
-    confidence = max(bullish_signals, bearish_signals) / total_signals
+    confidence_score = max(bullish_signals, bearish_signals) / total_signals
 
     # Compile final content
     message_content = {
         "signal": overall_signal,
-        "confidence": round(confidence, 2),
+        "confidence": f"{round(confidence_score * 100)}%",
         "reasoning": reasoning,
     }
-    message = HumanMessage(content=str(message_content), name="technical_analysis_agent")
+    message = HumanMessage(content=str(message_content), name="quant_agent")
 
     if show_reasoning:
-        show_agent_reasoning(message_content, "Technical Analysis Agent")
+        show_agent_reasoning(message_content, "Quant Agent")
 
-    return {"messages": [message], "data": data}
+    return {
+        "messages": [message],
+        "data": data,
+    }
 
 
 ##### 3. Fundamental Analysis Agent #####
 def fundamental_analysis_agent(state: TradingAgentState):
-    """Analyze fundamental data (profitability, growth, health, price ratios, intrinsic value)."""
+    """Analyze fundamental data (profitability, growth, health, ratios, intrinsic value) and generate signals."""
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
     metrics = data["financial_metrics"][0]
-    cash_flow_statement = data["cash_flow_statements"][0]
+    financial_line_item = data["financial_line_items"][0]
     market_cap = data["market_cap"]
 
-    # Evaluate signals
     signals = []
     reasoning = {}
 
@@ -346,7 +347,7 @@ def fundamental_analysis_agent(state: TradingAgentState):
     }
 
     # 5. Intrinsic Value
-    free_cash_flow = cash_flow_statement.get("free_cash_flow")
+    free_cash_flow = financial_line_item.get("free_cash_flow")
     intrinsic_value = compute_intrinsic_value(
         free_cash_flow=free_cash_flow,
         growth_rate=metrics["earnings_growth"],
@@ -365,7 +366,7 @@ def fundamental_analysis_agent(state: TradingAgentState):
         "details": f"Intrinsic Value: ${intrinsic_value:,.2f}, Market Cap: ${market_cap:,.2f}",
     }
 
-    # Overall fundamental signal
+    # Determine overall signal
     bullish_signals = signals.count("bullish")
     bearish_signals = signals.count("bearish")
     if bullish_signals > bearish_signals:
@@ -376,11 +377,11 @@ def fundamental_analysis_agent(state: TradingAgentState):
         overall_signal = "neutral"
 
     total_signals = len(signals)
-    confidence = max(bullish_signals, bearish_signals) / total_signals
+    confidence_score = max(bullish_signals, bearish_signals) / total_signals
 
     message_content = {
         "signal": overall_signal,
-        "confidence": round(confidence, 2),
+        "confidence": f"{round(confidence_score * 100)}%",
         "reasoning": reasoning,
     }
     message = HumanMessage(content=str(message_content), name="fundamentals_agent")
@@ -393,59 +394,46 @@ def fundamental_analysis_agent(state: TradingAgentState):
 
 ##### 4. Sentiment Analysis Agent #####
 def sentiment_analysis_agent(state: TradingAgentState):
-    """Analyze insider trades for sentiment signals."""
+    """Analyze insider trades for sentiment signals (buy => bullish, sell => bearish)."""
     data = state["data"]
-    insider_trades = data["insider_trades"]
     show_reasoning = state["metadata"]["show_reasoning"]
+    insider_trades = data["insider_trades"]
 
-    template = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                """
-                You are a market sentiment analyst focusing on insider trades.
-                Evaluate whether insider buying or selling indicates bullish, bearish, or neutral sentiment.
-                Return JSON:
-                {
-                  "sentiment": "bullish"|"bearish"|"neutral",
-                  "reasoning": "short explanation"
-                }
-                """
-            ),
-            (
-                "human",
-                """
-                Based on these insider trades, provide your sentiment analysis:
-                {insider_trades}
+    signals = []
+    for trade in insider_trades:
+        if trade["transaction_shares"] < 0:
+            signals.append("bearish")
+        else:
+            signals.append("bullish")
 
-                Return only the JSON with "sentiment" and "reasoning", no markdown.
-                """
-            ),
-        ]
-    )
+    bullish_signals = signals.count("bullish")
+    bearish_signals = signals.count("bearish")
+    if bullish_signals > bearish_signals:
+        overall_signal = "bullish"
+    elif bearish_signals > bullish_signals:
+        overall_signal = "bearish"
+    else:
+        overall_signal = "neutral"
 
-    prompt = template.invoke({"insider_trades": insider_trades})
-    result = llm.invoke(prompt)
+    total_signals = len(signals)
+    confidence_score = max(bullish_signals, bearish_signals) / total_signals
 
-    try:
-        message_content = json.loads(result.content)
-    except json.JSONDecodeError:
-        message_content = {
-            "sentiment": "neutral",
-            "reasoning": "Unable to parse JSON for insider trades"
-        }
-
-    message = HumanMessage(content=str(message_content), name="sentiment_analysis_agent")
+    message_content = {
+        "signal": overall_signal,
+        "confidence": f"{round(confidence_score * 100)}%",
+        "reasoning": f"Bullish signals: {bullish_signals}, Bearish signals: {bearish_signals}",
+    }
 
     if show_reasoning:
         show_agent_reasoning(message_content, "Sentiment Analysis Agent")
 
+    message = HumanMessage(content=str(message_content), name="sentiment_agent")
     return {"messages": [message], "data": data}
 
 
 ##### 5. Risk Evaluation Agent #####
 def risk_evaluation_agent(state: TradingAgentState):
-    """Evaluate portfolio risk based on technical, fundamental, sentiment inputs."""
+    """Evaluate portfolio risk and set position limits (max size, risk score, trading action)."""
     show_reasoning = state["metadata"]["show_reasoning"]
     portfolio = state["data"]["portfolio"]
 
@@ -498,14 +486,14 @@ def risk_evaluation_agent(state: TradingAgentState):
     message = HumanMessage(content=result.content, name="risk_management_agent")
 
     if show_reasoning:
-        show_agent_reasoning(message.content, "Risk Evaluation Agent")
+        show_agent_reasoning(message.content, "Risk Management Agent")
 
     return {"messages": state["messages"] + [message]}
 
 
 ##### 6. Final Decision Agent #####
 def final_decision_agent(state: TradingAgentState):
-    """Make the final trading decision (buy, sell, or hold)."""
+    """Make final trading decisions (action, quantity, confidence, signals, reasoning)."""
     show_reasoning = state["metadata"]["show_reasoning"]
     portfolio = state["data"]["portfolio"]
 
@@ -519,20 +507,27 @@ def final_decision_agent(state: TradingAgentState):
             (
                 "system",
                 """
-                You are a portfolio manager making the final decision.
-                Return JSON:
+                You are a portfolio manager making final trading decisions.
+                RISK MANAGEMENT CONSTRAINTS (Hard):
+                  - MUST NOT exceed max_position_size from risk manager
+                  - MUST follow the recommended trading_action in risk manager
+                Weighted Approach:
+                  - Fundamental Analysis = 50%
+                  - Technical Analysis = 35%
+                  - Sentiment Analysis = 15%
+                Output (JSON only):
                 {
                   "action": "buy"|"sell"|"hold",
                   "quantity": <positive integer>,
-                  "reasoning": "short explanation"
+                  "confidence": <0..1>,
+                  "agent_signals": <list of agent signals with name, signal, confidence>,
+                  "reasoning": "concise explanation"
                 }
-                Only buy if there's enough cash and quantity <= max position size.
-                Only sell if there's enough stock and quantity <= current position.
                 """
             ),
             (
                 "human",
-                """Technical Analysis: {technical_message}
+                """Technical Analysis: {quant_message}
                 Fundamental Analysis: {fundamental_message}
                 Sentiment Analysis: {sentiment_message}
                 Risk Evaluation: {risk_message}
@@ -541,7 +536,7 @@ def final_decision_agent(state: TradingAgentState):
                 Cash: {portfolio_cash}
                 Stock: {portfolio_stock}
 
-                Return only JSON with "action", "quantity", "reasoning".
+                Return only JSON with "action", "quantity", "confidence", "agent_signals", "reasoning". No markdown.
                 """
             ),
         ]
@@ -549,7 +544,7 @@ def final_decision_agent(state: TradingAgentState):
 
     prompt = template.invoke(
         {
-            "technical_message": technical_msg.content,
+            "quant_message": technical_msg.content,
             "fundamental_message": fundamental_msg.content,
             "sentiment_message": sentiment_msg.content,
             "risk_message": risk_msg.content,
@@ -559,7 +554,7 @@ def final_decision_agent(state: TradingAgentState):
     )
 
     result = llm.invoke(prompt)
-    message = HumanMessage(content=result.content, name="final_decision_agent")
+    message = HumanMessage(content=result.content, name="portfolio_management")
 
     if show_reasoning:
         try:
@@ -668,7 +663,7 @@ if __name__ == "__main__":
         except ValueError:
             raise ValueError("End date must be in YYYY-MM-DD format")
 
-    portfolio_example = {
+    sample_portfolio = {
         "cash": 100000.0,
         "stock": 0
     }
@@ -677,7 +672,7 @@ if __name__ == "__main__":
         ticker=args.ticker,
         start_date=args.start_date,
         end_date=args.end_date,
-        portfolio=portfolio_example,
+        portfolio=sample_portfolio,
         show_reasoning=args.show_reasoning
     )
     print("\nFinal Result:")
