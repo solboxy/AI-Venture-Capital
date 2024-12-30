@@ -1,31 +1,28 @@
-# AI Venture Capital Fund
+# AI Venture Fund
 
-An AI-driven venture capital fund leveraging cutting-edge agents to identify, evaluate, and execute investment opportunities. This system is powered by a collaborative network of specialized agents:
+An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, and execute investment opportunities. This system is powered by a collaborative network of specialized agents:
 
-The goal of this project is to have a Venture Capital Fund fully that runs fully autonomously.
-
-1. **Market Intelligence Agent** - Collects and processes market data on startups, industries, and emerging trends.
-2. **Quantitative Analysis Agent** - Evaluates financial performance, scalability, and market potential of startups.
-3. **Risk Evaluation Agent** - Identifies risks and develops mitigation strategies.
-4. **Portfolio Management Agent** - Oversees investment decisions and optimizes portfolio allocation.
-5. **Sentiment Analysis Agent** - Monitors public sentiment and media trends to provide additional insights.
-6. **Fundamentals Evaluation Agent** - Assesses key business fundamentals for sound investment strategies.
-
-<img width="1025" alt="Screenshot" src="https://github.com/user-attachments/assets/6e51851c-b4ee-4463-a016-3e9d7b886e7e">
+1. **Market Intelligence Agent** - Gathers and analyzes data on startups, industries, and emerging trends.
+2. **Quantitative Analysis Agent** - Evaluates financial performance, scalability, and market potential.
+3. **Risk Evaluation Agent** - Identifies potential risks and formulates mitigation strategies.
+4. **Portfolio Management Agent** - Manages investment decisions and ensures optimal portfolio allocation.
+5. **Sentiment Analysis Agent** - Monitors public sentiment and media trends for additional insights.
+6. **Fundamentals Evaluation Agent** - Assesses underlying business fundamentals for sound investment decisions.
 
 ## Key Features
 
-- **Multi-agent collaboration** for data-driven investment decisions.
-- **Comprehensive startup evaluation** using financial, market, and sentiment data.
-- **Advanced risk management** to ensure sustainable growth.
-- **Portfolio optimization tools** combining qualitative and quantitative insights.
-- **Backtesting engine** for strategy evaluation.
-- **Support for diverse industries and sectors.**
+- **Comprehensive multi-agent system** for intelligent, data-backed investments.
+- **In-depth startup evaluation** leveraging key performance indicators like revenue, market growth, and customer acquisition.
+- **Advanced sentiment tracking** for a holistic understanding of market dynamics.
+- **Risk-adjusted decision-making** with robust scenario planning.
+- **Portfolio optimization tools** that blend quantitative and qualitative inputs.
+- **Backtesting engine** to assess strategy effectiveness.
+- **Support for a diverse range of industries and sectors.**
 
 ## Prerequisites
 
 - Python 3.9+
-- Poetry or Docker for environment setup
+- Poetry or Docker (preferred for environment setup)
 - API keys for services like OpenAI and financial data providers
 
 ## Setup
@@ -33,14 +30,13 @@ The goal of this project is to have a Venture Capital Fund fully that runs fully
 Clone the repository:
 
 ```bash
-git clone https://github.com/your-repo/ai-vc-fund.git
-cd ai-vc-fund
+git clone https://github.com/your-repo/ai-venture-fund.git
+cd ai-venture-fund
 ```
 
 ### Installation Using Poetry
 
 1. Install Poetry (if not already installed):
-
    **MacOS/Linux:**
 
    ```bash
@@ -84,31 +80,32 @@ cd ai-vc-fund
 1. Build the Docker image:
 
    ```bash
-   docker build -t ai-vc-fund .
+   docker build -t ai-venture-fund .
    ```
 
 2. Run the Docker container:
 
    ```bash
-   docker run -it ai-vc-fund
+   docker run -it ai-venture-fund
    ```
 
 ## Usage
 
-### Managing the Hedge Fund
+### Running the System
 
-To manage and analyze hedge fund opportunities:
+To evaluate investment opportunities:
 
 **Poetry:**
 
 ```bash
-poetry run python src/agents.py --ticker AAPL --show-reasoning
+poetry run python src/agents.py --ticker "AAPL" --start-date 2024-01-01 --end-date 2024-06-30
+poetry run python src/main.py --ticker "AAPL" --start-date 2024-01-01 --end-date 2024-06-30
 ```
 
 **Docker:**
 
 ```bash
-docker run -it ai-vc-fund --ticker AAPL --start-date 2024-01-01 --end-date 2024-06-30
+docker run -it ai-venture-fund --ticker "AAPL" --start-date 2024-01-01 --end-date 2024-06-30
 ```
 
 **Example Output:**
@@ -117,8 +114,8 @@ docker run -it ai-vc-fund --ticker AAPL --start-date 2024-01-01 --end-date 2024-
 {
   "action": "invest",
   "amount": 750000,
-  \"ticker\": \"AAPL\",
-  "company": "MediGen"
+  "ticker": "AAPL",
+  "company": "Apple Inc."
 }
 ```
 
@@ -129,7 +126,7 @@ Evaluate historical strategies using backtesting:
 **Poetry:**
 
 ```bash
-poetry run python src/backtester.py --sector "AI" --start-date 2024-01-01 --end-date 2024-03-01
+poetry run python src/backtester.py --ticker "MSFT" --start-date 2023-01-01 --end-date 2023-12-31
 ```
 
 **Example Output:**
@@ -138,9 +135,9 @@ poetry run python src/backtester.py --sector "AI" --start-date 2024-01-01 --end-
 Starting backtest...
 Date         Ticker    Action    Amount       Cash       Portfolio Value
 ----------------------------------------------------------------------
-2023-01-01   AI        invest    500,000.00   500,000.00    1,000,000.00
-2023-06-30   AI        hold            0.00   500,000.00    1,050,000.00
-2023-12-31   AI        divest    550,000.00         0.00    1,050,000.00
+2023-01-01   MSFT      invest    500,000.00   500,000.00    1,000,000.00
+2023-06-30   MSFT      hold            0.00   500,000.00    1,050,000.00
+2023-12-31   MSFT      divest    550,000.00         0.00    1,050,000.00
 ```
 
 ### Analyzing Agent Decisions
@@ -148,7 +145,8 @@ Date         Ticker    Action    Amount       Cash       Portfolio Value
 Gain insights into agent-specific reasoning:
 
 ```bash
-poetry run python src/agents.py --sector "AI" --show-decisions
+poetry run python src/agents.py --ticker "GOOG" --show-decisions
+poetry run python src/main.py --ticker "GOOG" --show-decisions
 ```
 
 **Example Output:**
@@ -156,13 +154,13 @@ poetry run python src/agents.py --sector "AI" --show-decisions
 ```
 ===== Market Intelligence Agent =====
 Trend: Positive
-Sector Sentiment: 0.8
-Startup Interest: High
+Ticker Sentiment: 0.8
+Company Interest: High
 =====================================
 
 ===== Quantitative Analysis Agent =====
 Key Metrics: Positive
-Startup Score: 85/100
+Company Score: 85/100
 ========================================
 
 ===== Risk Evaluation Agent =====
@@ -190,7 +188,7 @@ Recommendation: Invest $300,000
 ## Project Layout
 
 ```
-ai-vc-fund/
+ai-venture-fund/
 ├── src/
 │   ├── agents.py           # Core agent logic
 │   ├── backtester.py       # Backtesting engine
