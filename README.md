@@ -188,7 +188,7 @@ Recommendation: Invest $300,000
 ```
 ai-venture-fund/
 ├── src/
-|   ├── agent.py
+|   |
 │   ├── agents/
 │   │   ├── fundamentals_agent.py
 │   │   ├── decision_agent.py
