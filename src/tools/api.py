@@ -1,8 +1,9 @@
 import os
-import requests
-import pandas as pd
 from typing import Dict, Any, List
+import pandas as pd
+import requests
 
+import requests
 
 def fetch_financial_metrics(
     ticker: str,
@@ -11,7 +12,7 @@ def fetch_financial_metrics(
     max_results: int = 1
 ) -> List[Dict[str, Any]]:
     """
-    Fetch financial metrics from an external API for a given ticker and report period.
+    Fetch financial metrics from an external API.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = (
@@ -40,7 +41,7 @@ def fetch_line_items(
     max_results: int = 1
 ) -> List[Dict[str, Any]]:
     """
-    Fetch specific line items (e.g., from cash flow statements) from an external API.
+    Fetch specific financial statement line items (e.g. free_cash_flow) for a given ticker.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = "https://api.financialdatasets.ai/financials/search/line-items"
@@ -116,7 +117,7 @@ def fetch_prices(
     end_date: str
 ) -> List[Dict[str, Any]]:
     """
-    Fetch price data from an external API for a specified ticker and date range.
+    Fetch price data for a given ticker and date range from an external API.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = (
@@ -163,107 +164,3 @@ def fetch_price_data(
     """
     prices = fetch_prices(ticker, start_date, end_date)
     return convert_prices_to_dataframe(prices)
-
-
-def compute_confidence_level(signals: Dict[str, Any]) -> float:
-    """
-    Compute a confidence level based on the difference between SMAs (Simple Moving Averages).
-    Normalizes the confidence to a value between 0 and 1.
-    """
-    sma_diff_prev = abs(signals["sma_5_prev"] - signals["sma_20_prev"])
-    sma_diff_curr = abs(signals["sma_5_curr"] - signals["sma_20_curr"])
-    diff_change = sma_diff_curr - sma_diff_prev
-    confidence = min(max(diff_change / signals["current_price"], 0), 1)
-    return confidence
-
-
-def compute_macd(prices_df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
-    """
-    Compute MACD (Moving Average Convergence Divergence) and its signal line
-    from a DataFrame of price data.
-    """
-    ema_12 = prices_df["close"].ewm(span=12, adjust=False).mean()
-    ema_26 = prices_df["close"].ewm(span=26, adjust=False).mean()
-    macd_line = ema_12 - ema_26
-    signal_line = macd_line.ewm(span=9, adjust=False).mean()
-    return macd_line, signal_line
-
-
-def compute_rsi(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """
-    Compute RSI (Relative Strength Index) for a given period from a DataFrame of price data.
-    """
-    delta = prices_df["close"].diff()
-    gain = (delta.where(delta > 0, 0)).fillna(0)
-    loss = (-delta.where(delta < 0, 0)).fillna(0)
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-
-def compute_bollinger_bands(
-    prices_df: pd.DataFrame,
-    window: int = 20
-) -> tuple[pd.Series, pd.Series]:
-    """
-    Compute Bollinger Bands for a given rolling window from a DataFrame of price data.
-    Returns upper and lower bands.
-    """
-    sma = prices_df["close"].rolling(window).mean()
-    std_dev = prices_df["close"].rolling(window).std()
-    upper_band = sma + (std_dev * 2)
-    lower_band = sma - (std_dev * 2)
-    return upper_band, lower_band
-
-
-def compute_obv(prices_df: pd.DataFrame) -> pd.Series:
-    """
-    Compute OBV (On-Balance Volume) from a DataFrame of price data.
-    """
-    obv = [0]
-    for i in range(1, len(prices_df)):
-        if prices_df["close"].iloc[i] > prices_df["close"].iloc[i - 1]:
-            obv.append(obv[-1] + prices_df["volume"].iloc[i])
-        elif prices_df["close"].iloc[i] < prices_df["close"].iloc[i - 1]:
-            obv.append(obv[-1] - prices_df["volume"].iloc[i])
-        else:
-            obv.append(obv[-1])
-    prices_df["OBV"] = obv
-    return prices_df["OBV"]
-
-
-def compute_intrinsic_value(
-    free_cash_flow: float,
-    growth_rate: float = 0.05,
-    discount_rate: float = 0.10,
-    terminal_growth_rate: float = 0.02,
-    num_years: int = 5
-) -> float:
-    """
-    Compute the discounted cash flow (DCF) / intrinsic value of a company
-    based on current free cash flow, growth rates, discount rate, and terminal rate.
-    """
-    # Project future cash flows
-    projected_cash_flows = [
-        free_cash_flow * (1 + growth_rate) ** i for i in range(num_years)
-    ]
-
-    # Calculate present values of projected cash flows
-    present_values = []
-    for i in range(num_years):
-        pv = projected_cash_flows[i] / ((1 + discount_rate) ** (i + 1))
-        present_values.append(pv)
-
-    # Compute terminal value
-    terminal_value = (
-        projected_cash_flows[-1] * (1 + terminal_growth_rate)
-        / (discount_rate - terminal_growth_rate)
-    )
-    terminal_present_value = terminal_value / ((1 + discount_rate) ** num_years)
-
-    # Sum present values + terminal value
-    dcf_value = sum(present_values) + terminal_present_value
-
-    return dcf_value
