@@ -98,7 +98,6 @@ To evaluate investment opportunities:
 **Poetry:**
 
 ```bash
-poetry run python src/agents.py --ticker "AAPL" --start-date 2024-01-01 --end-date 2024-06-30
 poetry run python src/main.py --ticker "AAPL" --start-date 2024-01-01 --end-date 2024-06-30
 ```
 
@@ -145,7 +144,6 @@ Date         Ticker    Action    Amount       Cash       Portfolio Value
 Gain insights into agent-specific reasoning:
 
 ```bash
-poetry run python src/agents.py --ticker "GOOG" --show-decisions
 poetry run python src/main.py --ticker "GOOG" --show-decisions
 ```
 
