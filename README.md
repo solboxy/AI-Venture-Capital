@@ -188,13 +188,19 @@ Recommendation: Invest $300,000
 ```
 ai-venture-fund/
 ├── src/
-│   ├── agents.py           # Core agent logic
-│   ├── backtester.py       # Backtesting engine
-│   ├── tools.py            # Supporting analysis tools
-├── pyproject.toml          # Poetry configuration
-├── Dockerfile              # Docker image setup
-├── .env.example            # Sample environment variables
-├── README.md               # Documentation
+|   ├── agent.py
+│   ├── agents/
+│   │   ├── fundamentals_agent.py
+│   │   ├── decision_agent.py
+│   │   ├── market_data_agent.py
+|   |   ├── risk_evaluation_agent.py
+│   │   ├── sentiment_agent.py
+|   |   ├── state.py
+|   |   ├── technical_analysis_agent.py
+│   ├── tools/
+│   │   ├── api.py
+│   ├── backtester.py
+│   ├── main.py
 ```
 
 ## Contributing
