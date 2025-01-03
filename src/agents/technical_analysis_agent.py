@@ -11,8 +11,8 @@ from agents.state import TradingAgentState, show_agent_reasoning
 from tools.api import convert_prices_to_dataframe
 
 
-##### Technical Analysis Agent #####
 def technical_analysis_agent(state: TradingAgentState):
+##### Technical Analysis Agent #####
     """
     A sophisticated technical analysis system that combines multiple trading strategies:
     1. Trend Following

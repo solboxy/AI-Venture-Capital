@@ -7,26 +7,24 @@ import json
 ##### Sentiment Analysis Agent #####
 def sentiment_analysis_agent(state: TradingAgentState):
     """
-    Analyzes insider trades to generate a market sentiment signal (buy => bullish, sell => bearish).
+    Analyzes insider trades for market sentiment signals.
+    If transaction_shares is negative => 'bearish'
+    If transaction_shares is positive => 'bullish'
     """
     data = state["data"]
     insider_trades = data["insider_trades"]
     show_reasoning = state["metadata"]["show_reasoning"]
 
-    signals = []
-    for trade in insider_trades:
-        transaction_shares = trade.get("transaction_shares")
-        if transaction_shares is None:
-            # Skip if no transaction_shares info
-            continue
-        if transaction_shares < 0:
-            signals.append("bearish")
-        else:
-            signals.append("bullish")
+    # Extract transaction_shares and drop NaN values
+    transaction_shares_series = pd.Series([trade["trade"] for trade in insider_trades]).dropna()
+
+    # Vectorized approach to assign sentiment signals
+    # Condition: Negative => 'bearish'; Else => 'bullish'
+    signals_array = np.where(transaction_shares_series < 0, "bearish", "bullish").tolist()
 
     # Determine overall sentiment signal
-    bullish_signals = signals.count("bullish")
-    bearish_signals = signals.count("bearish")
+    bullish_signals = signals_array.count("bullish")
+    bearish_signals = signals_array.count("bearish")
     if bullish_signals > bearish_signals:
         overall_signal = "bullish"
     elif bearish_signals > bullish_signals:
@@ -34,11 +32,12 @@ def sentiment_analysis_agent(state: TradingAgentState):
     else:
         overall_signal = "neutral"
 
-    # Calculate confidence based on proportion of bull/bear signals
-    total_signals = len(signals)
-    confidence_value = 0.0
+    # Calculate confidence level based on proportion of bullish vs bearish signals
+    total_signals = len(signals_array)
     if total_signals > 0:
         confidence_value = max(bullish_signals, bearish_signals) / total_signals
+    else:
+        confidence_value = 0.0
 
     message_content = {
         "signal": overall_signal,
@@ -46,11 +45,11 @@ def sentiment_analysis_agent(state: TradingAgentState):
         "reasoning": f"Bullish signals: {bullish_signals}, Bearish signals: {bearish_signals}",
     }
 
-    # Print the reasoning if the user requests it
+    # If show_reasoning is True, print the sentiment analysis details
     if show_reasoning:
         show_agent_reasoning(message_content, "Sentiment Analysis Agent")
 
-    # Create the sentiment analysis message
+    # Create the final message for the sentiment analysis agent
     message = HumanMessage(
         content=json.dumps(message_content),
         name="sentiment_analysis_agent",
