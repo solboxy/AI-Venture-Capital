@@ -203,6 +203,7 @@ ai-venture-fund/
 │   │   ├── sentiment_agent.py
 |   |   ├── state.py
 |   |   ├── technical_analysis_agent.py
+|   |   ├── valuation_analysis_agent.py
 │   ├── tools/
 │   │   ├── api.py
 │   ├── backtester.py
