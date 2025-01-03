@@ -8,6 +8,9 @@ An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, 
 4. **Portfolio Management Agent** - Manages investment decisions and ensures optimal portfolio allocation.
 5. **Sentiment Analysis Agent** - Monitors public sentiment and media trends for additional insights.
 6. **Fundamentals Evaluation Agent** - Assesses underlying business fundamentals for sound investment decisions.
+7. **Valuation Analysis Agent** - Calculates intrinsic stock values, evaluates growth potential, and generates actionable trading signals.
+
+---
 
 ![image](https://github.com/user-attachments/assets/e7cd0f4c-3ca3-4e2e-addc-006bc31d76aa)
 
@@ -19,6 +22,7 @@ An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, 
 - **Risk-adjusted decision-making** with robust scenario planning.
 - **Portfolio optimization tools** that blend quantitative and qualitative inputs.
 - **Backtesting engine** to assess strategy effectiveness.
+- **Valuation Insights** Delivers precise stock valuations and trading signals through the Valuation Analysis Agent.
 - **Support for a diverse range of industries and sectors.**
 
 ## Prerequisites
