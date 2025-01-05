@@ -7,27 +7,24 @@ from agents.agent_state_utils import TradingAgentState, show_agent_reasoning
 ##### Fundamental Analysis Agent #####
 def fundamental_analysis_agent(state: TradingAgentState):
     """
-    Analyzes fundamental metrics to generate trading signals based on:
-    1. Profitability
-    2. Growth
-    3. Financial Health
-    4. Price Ratio Metrics
+    Analyzes fundamental data (profitability, growth, financial health, price ratios)
+    and generates trading signals.
     """
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
     metrics = data["financial_metrics"][0]
 
-    # Track individual signals
+    # Track individual signals for each fundamental aspect
     analysis_signals = []
     reasoning = {}
 
     # 1. Profitability
     profitability_score = 0
-    if metrics["return_on_equity"] > 0.15:  # Strong ROE above 15%
+    if metrics["return_on_equity"] and metrics["return_on_equity"] > 0.15:  # Strong ROE above 15%
         profitability_score += 1
-    if metrics["net_margin"] > 0.20:       # Healthy profit margins
+    if metrics["net_margin"] and metrics["net_margin"] > 0.20:            # Healthy profit margins
         profitability_score += 1
-    if metrics["operating_margin"] > 0.15: # Strong operating efficiency
+    if metrics["operating_margin"] and metrics["operating_margin"] > 0.15:  # Strong operating efficiency
         profitability_score += 1
 
     profitability_signal = (
@@ -41,19 +38,25 @@ def fundamental_analysis_agent(state: TradingAgentState):
     reasoning["profitability"] = {
         "signal": profitability_signal,
         "details": (
-            f"ROE: {metrics['return_on_equity']:.2%}, "
-            f"Net Margin: {metrics['net_margin']:.2%}, "
-            f"Operating Margin: {metrics['operating_margin']:.2%}"
+            f"ROE: {metrics['return_on_equity']:.2%}" if metrics["return_on_equity"] else "ROE: N/A"
+        )
+        + ", "
+        + (
+            f"Net Margin: {metrics['net_margin']:.2%}" if metrics["net_margin"] else "Net Margin: N/A"
+        )
+        + ", "
+        + (
+            f"Op Margin: {metrics['operating_margin']:.2%}" if metrics["operating_margin"] else "Op Margin: N/A"
         ),
     }
 
     # 2. Growth
     growth_score = 0
-    if metrics["revenue_growth"] > 0.10:      # 10% revenue growth
+    if metrics["revenue_growth"] and metrics["revenue_growth"] > 0.10:
         growth_score += 1
-    if metrics["earnings_growth"] > 0.10:     # 10% earnings growth
+    if metrics["earnings_growth"] and metrics["earnings_growth"] > 0.10:
         growth_score += 1
-    if metrics["book_value_growth"] > 0.10:   # 10% book value growth
+    if metrics["book_value_growth"] and metrics["book_value_growth"] > 0.10:
         growth_score += 1
 
     growth_signal = (
@@ -67,18 +70,25 @@ def fundamental_analysis_agent(state: TradingAgentState):
     reasoning["growth"] = {
         "signal": growth_signal,
         "details": (
-            f"Revenue Growth: {metrics['revenue_growth']:.2%}, "
-            f"Earnings Growth: {metrics['earnings_growth']:.2%}"
+            f"Revenue Growth: {metrics['revenue_growth']:.2%}" if metrics["revenue_growth"] else "Revenue Growth: N/A"
+        )
+        + ", "
+        + (
+            f"Earnings Growth: {metrics['earnings_growth']:.2%}" if metrics["earnings_growth"] else "Earnings Growth: N/A"
         ),
     }
 
     # 3. Financial Health
     health_score = 0
-    if metrics["current_ratio"] > 1.5:  # Strong liquidity
+    if metrics["current_ratio"] and metrics["current_ratio"] > 1.5:
         health_score += 1
-    if metrics["debt_to_equity"] < 0.5: # Conservative debt levels
+    if metrics["debt_to_equity"] and metrics["debt_to_equity"] < 0.5:
         health_score += 1
-    if metrics["free_cash_flow_per_share"] > metrics["earnings_per_share"] * 0.8:
+    if (
+        metrics.get("free_cash_flow_per_share")
+        and metrics.get("earnings_per_share")
+        and metrics["free_cash_flow_per_share"] > metrics["earnings_per_share"] * 0.8
+    ):
         health_score += 1
 
     financial_health_signal = (
@@ -92,22 +102,25 @@ def fundamental_analysis_agent(state: TradingAgentState):
     reasoning["financial_health"] = {
         "signal": financial_health_signal,
         "details": (
-            f"Current Ratio: {metrics['current_ratio']:.2f}, "
-            f"D/E: {metrics['debt_to_equity']:.2f}"
+            f"Current Ratio: {metrics['current_ratio']:.2f}" if metrics["current_ratio"] else "Current Ratio: N/A"
+        )
+        + ", "
+        + (
+            f"D/E: {metrics['debt_to_equity']:.2f}" if metrics["debt_to_equity"] else "D/E: N/A"
         ),
     }
 
-    # 4. Price Ratio Metrics (P/E, P/B, P/S)
-    pe_ratio = metrics["price_to_earnings_ratio"]
-    pb_ratio = metrics["price_to_book_ratio"]
-    ps_ratio = metrics["price_to_sales_ratio"]
+    # 4. Price Ratios
+    pe_ratio = metrics.get("price_to_earnings_ratio", None)
+    pb_ratio = metrics.get("price_to_book_ratio", None)
+    ps_ratio = metrics.get("price_to_sales_ratio", None)
 
     price_ratios_score = 0
-    if pe_ratio < 25:
+    if pe_ratio and pe_ratio < 25:
         price_ratios_score += 1
-    if pb_ratio < 3:
+    if pb_ratio and pb_ratio < 3:
         price_ratios_score += 1
-    if ps_ratio < 5:
+    if ps_ratio and ps_ratio < 5:
         price_ratios_score += 1
 
     price_ratios_signal = (
@@ -121,16 +134,21 @@ def fundamental_analysis_agent(state: TradingAgentState):
     reasoning["price_ratios"] = {
         "signal": price_ratios_signal,
         "details": (
-            f"P/E: {pe_ratio:.2f}, "
-            f"P/B: {pb_ratio:.2f}, "
-            f"P/S: {ps_ratio:.2f}"
+            f"P/E: {pe_ratio:.2f}" if pe_ratio else "P/E: N/A"
+        )
+        + ", "
+        + (
+            f"P/B: {pb_ratio:.2f}" if pb_ratio else "P/B: N/A"
+        )
+        + ", "
+        + (
+            f"P/S: {ps_ratio:.2f}" if ps_ratio else "P/S: N/A"
         ),
     }
 
     # Determine overall signal
     bullish_signals = analysis_signals.count("bullish")
     bearish_signals = analysis_signals.count("bearish")
-
     if bullish_signals > bearish_signals:
         overall_signal = "bullish"
     elif bearish_signals > bullish_signals:
@@ -138,7 +156,7 @@ def fundamental_analysis_agent(state: TradingAgentState):
     else:
         overall_signal = "neutral"
 
-    # Calculate confidence level
+    # Calculate confidence
     total_signals = len(analysis_signals)
     if total_signals > 0:
         confidence_level = max(bullish_signals, bearish_signals) / total_signals
