@@ -24,10 +24,8 @@ def valuation_analysis_agent(state: TradingAgentState):
     reasoning = {}
 
     # Calculate working capital change
-    working_cap_change = compute_working_capital_change(
-        current_line_item.get("working_capital", 0),
-        previous_line_item.get("working_capital", 0)
-    )
+    working_cap_change = (current_line_item.get('working_capital') or 0) - (previous_line_item.get('working_capital') or 0)
+
 
     # 1. Owner Earnings Valuation (Buffett Method)
     owner_earnings_value = compute_owner_earnings_value(
