@@ -1,30 +1,44 @@
-from langchain_core.messages import HumanMessage
-
-from graph.state import TradingAgentState, show_agent_reasoning
+import pandas as pd
+import numpy as np
 import json
 
+from langchain_core.messages import HumanMessage
+from graph.state import TradingAgentState, show_agent_reasoning
+
+# Updated tool function import
+from tools.api import fetch_insider_trades
 
 ##### Sentiment Analysis Agent #####
 def sentiment_analysis_agent(state: TradingAgentState):
     """
-    Analyzes insider trades for market sentiment signals.
-    If transaction_shares is negative => 'bearish'
-    If transaction_shares is positive => 'bullish'
+    Analyzes market sentiment and generates trading signals.
+    Specifically looks at insider trades:
+    - Negative transaction_shares => 'bearish'
+    - Positive transaction_shares => 'bullish'
     """
     data = state["data"]
-    insider_trades = data["insider_trades"]
+    end_date = data["end_date"]
     show_reasoning = state["metadata"]["show_reasoning"]
 
-    # Extract transaction_shares and drop NaN values
-    transaction_shares_series = pd.Series([trade["trade"] for trade in insider_trades]).dropna()
+    # Fetch the insider trades
+    insider_trades = fetch_insider_trades(
+        ticker=data["ticker"],
+        end_date=end_date,
+        limit=5,
+    )
 
-    # Vectorized approach to assign sentiment signals
-    # Condition: Negative => 'bearish'; Else => 'bullish'
-    signals_array = np.where(transaction_shares_series < 0, "bearish", "bullish").tolist()
+    # Convert transaction_shares to a Series, dropping NaN values
+    transaction_shares = pd.Series(
+        [trade["transaction_shares"] for trade in insider_trades]
+    ).dropna()
+
+    # Vectorized approach: negative => 'bearish', else => 'bullish'
+    analysis_signals = np.where(transaction_shares < 0, "bearish", "bullish").tolist()
 
     # Determine overall sentiment signal
-    bullish_signals = signals_array.count("bullish")
-    bearish_signals = signals_array.count("bearish")
+    bullish_signals = analysis_signals.count("bullish")
+    bearish_signals = analysis_signals.count("bearish")
+
     if bullish_signals > bearish_signals:
         overall_signal = "bullish"
     elif bearish_signals > bullish_signals:
@@ -32,28 +46,40 @@ def sentiment_analysis_agent(state: TradingAgentState):
     else:
         overall_signal = "neutral"
 
-    # Calculate confidence level based on proportion of bullish vs bearish signals
-    total_signals = len(signals_array)
+    # Calculate confidence_level based on proportion
+    total_signals = len(analysis_signals)
     if total_signals > 0:
-        confidence_value = max(bullish_signals, bearish_signals) / total_signals
+        confidence_level = max(bullish_signals, bearish_signals) / total_signals
     else:
-        confidence_value = 0.0
+        confidence_level = 0.0
+
+    reasoning_text = (
+        f"Bullish signals: {bullish_signals}, Bearish signals: {bearish_signals}"
+    )
 
     message_content = {
         "signal": overall_signal,
-        "confidence": f"{round(confidence_value * 100)}%",
-        "reasoning": f"Bullish signals: {bullish_signals}, Bearish signals: {bearish_signals}",
+        "confidence_level": f"{round(confidence_level * 100)}%",
+        "reasoning": reasoning_text,
     }
 
-    # If show_reasoning is True, print the sentiment analysis details
+    # Print reasoning if the flag is set
     if show_reasoning:
         show_agent_reasoning(message_content, "Sentiment Analysis Agent")
 
-    # Create the final message for the sentiment analysis agent
+    # Create the sentiment analysis message
     message = HumanMessage(
         content=json.dumps(message_content),
         name="sentiment_analysis_agent",
     )
+
+    # Add the signal to the analyst_signals dictionary
+    state["data"].setdefault("analyst_signals", {})
+    state["data"]["analyst_signals"]["sentiment_analysis_agent"] = {
+        "signal": overall_signal,
+        "confidence_level": f"{round(confidence_level * 100)}%",
+        "reasoning": reasoning_text,
+    }
 
     return {
         "messages": [message],
