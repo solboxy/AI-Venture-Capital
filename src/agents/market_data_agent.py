@@ -24,10 +24,7 @@ def gather_market_data_agent(state: TradingAgentState):
         max_results=5,
     )
 
-    # Fetch market cap
-    market_cap = fetch_market_cap(
-        ticker=data["ticker"],
-    )
+    
 
     # Fetch specific line items (e.g., free cash flow)
     financial_line_items = fetch_line_items(
@@ -44,7 +41,6 @@ def gather_market_data_agent(state: TradingAgentState):
             "start_date": start_date,
             "end_date": end_date,
             "insider_trades": insider_trades,
-            "market_cap": market_cap,
             "financial_line_items": financial_line_items,
         },
     }

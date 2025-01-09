@@ -4,7 +4,7 @@ import json
 from langchain_core.messages import HumanMessage
 
 from agents.state import TradingAgentState, show_agent_reasoning
-from tools.api import fetch_financial_metrics
+from tools.api import fetch_financial_metrics, fetch_market_cap
 
 
 ##### Valuation Analysis Agent #####
@@ -19,7 +19,6 @@ def valuation_analysis_agent(state: TradingAgentState):
     data = state["data"]
     current_line_item = data["financial_line_items"][0]
     previous_line_item = data["financial_line_items"][1]
-    market_cap = data["market_cap"]
     end_date = data["end_date"]
     # Get the financial metrics
     financial_metrics = fetch_financial_metrics(
@@ -55,6 +54,8 @@ def valuation_analysis_agent(state: TradingAgentState):
         terminal_growth_rate=0.03,
         num_years=5,
     )
+    
+     market_cap = get_market_cap(ticker=data["ticker"])
 
     # Calculate valuation gaps (relative to market cap)
     dcf_gap = (dcf_value - market_cap) / market_cap
