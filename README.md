@@ -2,13 +2,12 @@
 
 An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, and execute investment opportunities. This system is powered by a collaborative network of specialized agents:
 
-1. **Market Intelligence Agent** - Gathers and analyzes data on startups, industries, and emerging trends.
-2. **Quantitative Analysis Agent** - Evaluates financial performance, scalability, and market potential.
-3. **Risk Evaluation Agent** - Identifies potential risks and formulates mitigation strategies.
-4. **Portfolio Management Agent** - Manages investment decisions and ensures optimal portfolio allocation.
-5. **Sentiment Analysis Agent** - Monitors public sentiment and media trends for additional insights.
-6. **Fundamentals Evaluation Agent** - Assesses underlying business fundamentals for sound investment decisions.
-7. **Valuation Analysis Agent** - Calculates intrinsic stock values, evaluates growth potential, and generates actionable trading signals.
+1. **Quantitative Analysis Agent** - Evaluates financial performance, scalability, and market potential.
+2. **Risk Evaluation Agent** - Identifies potential risks and formulates mitigation strategies.
+3. **Portfolio Management Agent** - Manages investment decisions and ensures optimal portfolio allocation.
+4. **Sentiment Analysis Agent** - Monitors public sentiment and media trends for additional insights.
+5. **Fundamentals Evaluation Agent** - Assesses underlying business fundamentals for sound investment decisions.
+6. **Valuation Analysis Agent** - Calculates intrinsic stock values, evaluates growth potential, and generates actionable trading signals.
 
 ---
 
@@ -198,7 +197,6 @@ ai-venture-fund/
 │   ├── agents/
 │   │   ├── fundamentals_agent.py
 │   │   ├── decision_agent.py
-│   │   ├── market_data_agent.py
 |   |   ├── risk_evaluation_agent.py
 │   │   ├── sentiment_agent.py
 |   |   ├── state.py
