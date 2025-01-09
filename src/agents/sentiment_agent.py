@@ -16,20 +16,20 @@ def sentiment_analysis_agent(state: TradingAgentState):
     - Negative transaction_shares => 'bearish'
     - Positive transaction_shares => 'bullish'
     """
-    data = state["data"]
-    end_date = data["end_date"]
-    show_reasoning = state["metadata"]["show_reasoning"]
+    data = state.get("data", {})
+    end_date = data.get("end_date")
+    ticker = data.get("ticker")
 
     # Fetch the insider trades
     insider_trades = fetch_insider_trades(
-        ticker=data["ticker"],
+        ticker=ticker,
         end_date=end_date,
         limit=5,
     )
 
     # Convert transaction_shares to a Series, dropping NaN values
     transaction_shares = pd.Series(
-        [trade["transaction_shares"] for trade in insider_trades]
+        [t.get("transaction_shares") for t in insider_trades]
     ).dropna()
 
     # Vectorized approach: negative => 'bearish', else => 'bullish'
