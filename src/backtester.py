@@ -3,8 +3,8 @@ import argparse
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.tools import fetch_price_data
-from src.agents import run_trading_system
+from tools.api import fetch_price_data
+from main import run_trading_system
 
 
 class TradingBacktester:
