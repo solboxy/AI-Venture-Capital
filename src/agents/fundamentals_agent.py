@@ -2,6 +2,7 @@ import json
 
 from langchain_core.messages import HumanMessage
 from agents.state import TradingAgentState, show_agent_reasoning
+from tools.api import fetch_financial_metrics
 
 ##### Fundamental Analysis Agent #####
 def fundamental_analysis_agent(state: TradingAgentState):
@@ -11,7 +12,16 @@ def fundamental_analysis_agent(state: TradingAgentState):
     """
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
-    metrics = data["financial_metrics"][0]
+    end_date = data["end_date"]
+    # Get the financial metrics
+    financial_metrics = fetch_financial_metrics(
+        ticker=data["ticker"], 
+        report_period=end_date, 
+        period='ttm', 
+        limit=1,
+    )
+    # Pull the most recent financial metrics
+    metrics = financial_metrics[0]
 
     # Initialize analysis_signals list for different fundamental aspects
     analysis_signals = []

@@ -5,6 +5,7 @@ from langchain_openai.chat_models import ChatOpenAI
 from tools.api import fetch_line_items, fetch_financial_metrics, fetch_insider_trades, fetch_market_cap, fetch_prices
 
 
+
 def gather_market_data_agent(state: TradingAgentState):
     """Responsible for gathering and preprocessing market data."""
     messages = state["messages"]
@@ -14,13 +15,7 @@ def gather_market_data_agent(state: TradingAgentState):
     start_date = data["start_date"]
     end_date = data["end_date"]
 
-    # Fetch financial metrics
-    financial_metrics = fetch_financial_metrics(
-        ticker=data["ticker"],
-        report_period=end_date,
-        period="ttm",
-        max_results=1,
-    )
+   
 
     # Fetch insider trades
     insider_trades = fetch_insider_trades(
@@ -48,7 +43,6 @@ def gather_market_data_agent(state: TradingAgentState):
             **data,
             "start_date": start_date,
             "end_date": end_date,
-            "financial_metrics": financial_metrics,
             "insider_trades": insider_trades,
             "market_cap": market_cap,
             "financial_line_items": financial_line_items,

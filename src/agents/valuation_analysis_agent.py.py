@@ -4,6 +4,7 @@ import json
 from langchain_core.messages import HumanMessage
 
 from agents.state import TradingAgentState, show_agent_reasoning
+from tools.api import fetch_financial_metrics
 
 
 ##### Valuation Analysis Agent #####
@@ -16,12 +17,20 @@ def valuation_analysis_agent(state: TradingAgentState):
     """
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
-    metrics = data["financial_metrics"][0]
     current_line_item = data["financial_line_items"][0]
     previous_line_item = data["financial_line_items"][1]
     market_cap = data["market_cap"]
+    end_date = data["end_date"]
+    # Get the financial metrics
+    financial_metrics = fetch_financial_metrics(
+        ticker=data["ticker"], 
+        report_period=end_date, 
+        period='ttm', 
+        limit=1,
+    )
 
-    reasoning = {}
+
+    metrics = financial_metrics[0]
 
     # Calculate working capital change
     working_cap_change = (current_line_item.get('working_capital') or 0) - (previous_line_item.get('working_capital') or 0)
@@ -59,6 +68,9 @@ def valuation_analysis_agent(state: TradingAgentState):
         signal = "bearish"
     else:
         signal = "neutral"
+        
+    # Create the reasoning
+    reasoning = {}
 
     # Build reasoning
     reasoning["dcf_analysis"] = {
