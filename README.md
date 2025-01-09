@@ -11,7 +11,7 @@ An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, 
 
 ---
 
-![image](https://github.com/user-attachments/assets/e7cd0f4c-3ca3-4e2e-addc-006bc31d76aa)
+<img width="1060" alt="Screenshot" src="https://github.com/user-attachments/assets/4611aace-27d0-43b2-9a70-385b40336e3f" />
 
 ## Key Features
 
