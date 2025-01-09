@@ -26,21 +26,11 @@ def gather_market_data_agent(state: TradingAgentState):
 
     
 
-    # Fetch specific line items (e.g., free cash flow)
-    financial_line_items = fetch_line_items(
-        ticker=data["ticker"],
-        line_items=["free_cash_flow"],
-        period="ttm",
-        max_results=1,
-    )
-
+   
     return {
         "messages": messages,
         "data": {
             **data,
-            "start_date": start_date,
-            "end_date": end_date,
-            "insider_trades": insider_trades,
-            "financial_line_items": financial_line_items,
+            
         },
     }

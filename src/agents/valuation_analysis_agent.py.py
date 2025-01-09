@@ -4,7 +4,7 @@ import json
 from langchain_core.messages import HumanMessage
 
 from agents.state import TradingAgentState, show_agent_reasoning
-from tools.api import fetch_financial_metrics, fetch_market_cap
+from tools.api import fetch_financial_metrics, fetch_market_cap, fetch_line_items
 
 
 ##### Valuation Analysis Agent #####
@@ -17,8 +17,6 @@ def valuation_analysis_agent(state: TradingAgentState):
     """
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
-    current_line_item = data["financial_line_items"][0]
-    previous_line_item = data["financial_line_items"][1]
     end_date = data["end_date"]
     # Get the financial metrics
     financial_metrics = fetch_financial_metrics(
@@ -30,16 +28,26 @@ def valuation_analysis_agent(state: TradingAgentState):
 
 
     metrics = financial_metrics[0]
+    
+    financial_line_items = fetch_line_items(
+        ticker=data["ticker"], 
+        line_items=["free_cash_flow", "net_income", "depreciation_and_amortization", "capital_expenditure", "working_capital"],
+        period='ttm',
+        limit=2,
+    )
+    # Pull the current and previous financial line items
+    current_financial_line_item = financial_line_items[0]
+    previous_financial_line_item = financial_line_items[1]
 
     # Calculate working capital change
-    working_cap_change = (current_line_item.get('working_capital') or 0) - (previous_line_item.get('working_capital') or 0)
+    working_cap_change = (current_financial_line_item.get('working_capital') or 0) - (previous_financial_line_item.get('working_capital') or 0)
 
 
     # 1. Owner Earnings Valuation (Buffett Method)
     owner_earnings_value = compute_owner_earnings_value(
-        net_income=current_line_item.get("net_income"),
-        depreciation=current_line_item.get("depreciation_and_amortization"),
-        capex=current_line_item.get("capital_expenditure"),
+        net_income=current_financial_line_item.get("net_income"),
+        depreciation=current_financial_line_item.get("depreciation_and_amortization"),
+        capex=current_financial_line_item.get("capital_expenditure"),
         working_capital_change=working_cap_change,
         growth_rate=metrics["earnings_growth"],
         required_return=0.15,
@@ -48,14 +56,14 @@ def valuation_analysis_agent(state: TradingAgentState):
 
     # 2. DCF Valuation
     dcf_value = compute_intrinsic_value(
-        free_cash_flow=current_line_item.get("free_cash_flow"),
+        free_cash_flow=current_financial_line_item.get("free_cash_flow"),
         growth_rate=metrics["earnings_growth"],
         discount_rate=0.10,
         terminal_growth_rate=0.03,
         num_years=5,
     )
     
-     market_cap = get_market_cap(ticker=data["ticker"])
+    market_cap = fetch_market_cap(ticker=data["ticker"])
 
     # Calculate valuation gaps (relative to market cap)
     dcf_gap = (dcf_value - market_cap) / market_cap
