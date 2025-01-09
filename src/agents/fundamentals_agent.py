@@ -1,7 +1,7 @@
 import json
 
 from langchain_core.messages import HumanMessage
-from agents.state import TradingAgentState, show_agent_reasoning
+from graph.state import TradingAgentState, show_agent_reasoning
 from tools.api import fetch_financial_metrics
 
 ##### Fundamental Analysis Agent #####

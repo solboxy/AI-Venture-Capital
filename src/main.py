@@ -7,7 +7,7 @@ from agents.technical_analysis_agent import technical_analysis_agent
 from agents.sentiment_agent import sentiment_analysis_agent
 from agents.risk_evaluation_agent import risk_evaluation_agent
 from agents.decision_agent import final_decision_agent
-from agents.valuation_analysis import valuation_analysis_agent
+from agents.valuation_analysis_agent import valuation_analysis_agent
 from graph.state import TradingAgentState
 
 import argparse
