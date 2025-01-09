@@ -11,25 +11,8 @@ def gather_market_data_agent(state: TradingAgentState):
     data = state["data"]
 
     # Set default dates
-    end_date = data["end_date"] or datetime.now().strftime("%Y-%m-%d")
-    if not data["start_date"]:
-        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-        if end_date_obj.month > 3:
-            start_date_obj = end_date_obj.replace(month=end_date_obj.month - 3)
-        else:
-            start_date_obj = end_date_obj.replace(
-                year=end_date_obj.year - 1, month=end_date_obj.month + 9
-            )
-        start_date = start_date_obj.strftime("%Y-%m-%d")
-    else:
-        start_date = data["start_date"]
-
-    # Fetch historical price data
-    prices = fetch_prices(
-        ticker=data["ticker"],
-        start_date=start_date,
-        end_date=end_date,
-    )
+    start_date = data["start_date"]
+    end_date = data["end_date"]
 
     # Fetch financial metrics
     financial_metrics = fetch_financial_metrics(
@@ -63,7 +46,6 @@ def gather_market_data_agent(state: TradingAgentState):
         "messages": messages,
         "data": {
             **data,
-            "prices": prices,
             "start_date": start_date,
             "end_date": end_date,
             "financial_metrics": financial_metrics,

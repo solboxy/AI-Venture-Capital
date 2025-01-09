@@ -4,7 +4,7 @@ import ast
 
 from langchain_core.messages import HumanMessage
 from agents.state import TradingAgentState, show_agent_reasoning
-from tools.api import convert_prices_to_dataframe
+from tools.api import convert_prices_to_dataframe, fetch_prices
 
 ##### Risk Evaluation Agent #####
 def risk_evaluation_agent(state: TradingAgentState):
@@ -14,9 +14,16 @@ def risk_evaluation_agent(state: TradingAgentState):
     show_reasoning = state["metadata"]["show_reasoning"]
     portfolio = state["data"]["portfolio"]
     data = state["data"]
+    start_date = data["start_date"]
+    end_date = data["end_date"]
+    # Get the historical price data
+    prices = fetch_prices(
+        ticker=data["ticker"], 
+        start_date=start_date, 
+        end_date=end_date,
+    )
 
-    prices_df = convert_prices_to_dataframe(data["prices"])
-
+    prices_df = convert_prices_to_dataframe(prices)
     # Fetch messages from other agents
     technical_message = next(
         msg for msg in state["messages"] if msg.name == "technical_analysis_agent"

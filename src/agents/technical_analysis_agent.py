@@ -8,7 +8,8 @@ import numpy as np
 from langchain_core.messages import HumanMessage
 
 from agents.state import TradingAgentState, show_agent_reasoning
-from tools.api import convert_prices_to_dataframe
+from tools.api import convert_prices_to_dataframe,fetch_prices
+
 
 
 def technical_analysis_agent(state: TradingAgentState):
@@ -23,14 +24,21 @@ def technical_analysis_agent(state: TradingAgentState):
     """
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
-    prices = data["prices"]
-    prices_df = convert_prices_to_dataframe(prices)
+    start_date = data["start_date"]
+    end_date = data["end_date"]
+    # Get the historical price data
+    prices = fetch_prices(
+        ticker=data["ticker"], 
+        start_date=start_date, 
+        end_date=end_date,
+    )
+    # Convert prices to a DataFrame    prices_df = convert_prices_to_dataframe(prices)
 
     # Compute indicators
-    macd_line, signal_line = compute_macd(prices_df)
-    rsi_values = compute_rsi(prices_df)
-    upper_band, lower_band = compute_bollinger_bands(prices_df)
-    obv_values = compute_obv(prices_df)
+    macd_line, signal_line = compute_macd(convert_prices_to_dataframe)
+    rsi_values = compute_rsi(convert_prices_to_dataframe)
+    upper_band, lower_band = compute_bollinger_bands(convert_prices_to_dataframe)
+    obv_values = compute_obv(convert_prices_to_dataframe)
 
     # Generate individual signals
     signals = []
@@ -52,7 +60,7 @@ def technical_analysis_agent(state: TradingAgentState):
         signals.append("neutral")
 
     # Bollinger Bands signal
-    current_price = prices_df["close"].iloc[-1]
+    current_price = convert_prices_to_dataframe["close"].iloc[-1]
     if current_price < lower_band.iloc[-1]:
         signals.append("bullish")
     elif current_price > upper_band.iloc[-1]:
@@ -128,11 +136,11 @@ def technical_analysis_agent(state: TradingAgentState):
     }
 
     # Extended Strategies
-    trend_signals = compute_trend_signals(prices_df)
-    mean_reversion_signals = compute_mean_reversion_signals(prices_df)
-    momentum_signals = compute_momentum_signals(prices_df)
-    volatility_signals = compute_volatility_signals(prices_df)
-    stat_arb_signals = compute_stat_arb_signals(prices_df)
+    trend_signals = compute_trend_signals(convert_prices_to_dataframe)
+    mean_reversion_signals = compute_mean_reversion_signals(convert_prices_to_dataframe)
+    momentum_signals = compute_momentum_signals(convert_prices_to_dataframe)
+    volatility_signals = compute_volatility_signals(convert_prices_to_dataframe)
+    stat_arb_signals = compute_stat_arb_signals(convert_prices_to_dataframe)
 
     # Weighted ensemble approach
     strategy_weights = {

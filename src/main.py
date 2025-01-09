@@ -101,11 +101,16 @@ if __name__ == "__main__":
         except ValueError:
             raise ValueError("Start date must be in YYYY-MM-DD format")
 
-    if args.end_date:
-        try:
-            datetime.strptime(args.end_date, "%Y-%m-%d")
-        except ValueError:
-            raise ValueError("End date must be in YYYY-MM-DD format")
+    # Set the start and end dates
+    end_date = args.end_date or datetime.now().strftime('%Y-%m-%d')
+    if not args.start_date:
+        # Calculate 3 months before end_date
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+        start_date = end_date_obj.replace(month=end_date_obj.month - 3) if end_date_obj.month > 3 else \
+            end_date_obj.replace(year=end_date_obj.year - 1, month=end_date_obj.month + 9)
+        start_date = start_date.strftime('%Y-%m-%d')
+    else:
+        start_date = args.start_date
 
     # Sample portfolio - you might want to make this configurable
     portfolio_example = {
@@ -115,8 +120,8 @@ if __name__ == "__main__":
 
     final_result = run_trading_system(
         ticker=args.ticker,
-        start_date=args.start_date,
-        end_date=args.end_date,
+        start_date=start_date,
+        end_date=end_date,
         portfolio=portfolio_example,
         show_reasoning=args.show_reasoning
     )
