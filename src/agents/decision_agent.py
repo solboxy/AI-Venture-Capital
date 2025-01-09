@@ -5,7 +5,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai.chat_models import ChatOpenAI
 
-from agents.state import TradingAgentState, show_agent_reasoning
+from graph.state import TradingAgentState, show_agent_reasoning
 
 
 ##### Final Decision Agent #####

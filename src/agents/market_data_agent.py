@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from agents.state import TradingAgentState
+from graph.state import TradingAgentState
 from langchain_openai.chat_models import ChatOpenAI
 from tools.api import fetch_line_items, fetch_financial_metrics, fetch_insider_trades, fetch_market_cap, fetch_prices
 
