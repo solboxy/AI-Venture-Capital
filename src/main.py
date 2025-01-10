@@ -9,6 +9,8 @@ from agents.risk_evaluation_agent import risk_evaluation_agent
 from agents.decision_agent import final_decision_agent
 from agents.valuation_analysis_agent import valuation_analysis_agent
 from graph.state import TradingAgentState
+from tabulate import tabulate
+
 
 import argparse
 from datetime import datetime
@@ -136,16 +138,31 @@ if __name__ == "__main__":
     print("\nFinal Result:")
     decision = final_result.get("decision")
     
-    print("\nANALYST SIGNALS:")
+    table_data = []
     for agent, signal in final_result.get("analyst_signals").items():
         agent_name = agent.replace("_agent", "").replace("_", " ").title()
-        print(f"\n{agent_name}:")
-        print(f"Signal: {signal.get('signal', '').upper()}")
-        print(f"Confidence: {signal.get('confidence')}%")
+        table_data.append([
+            agent_name,
+            signal.get('signal', '').upper(),
+            f"{signal.get('confidence')}%"
+        ])
+    print("\nANALYST SIGNALS:")
+    print(tabulate(table_data, 
+                  headers=['Analyst', 'Signal', 'Confidence'],
+                  tablefmt='grid',
+                  colalign=("left", "center", "right")))
+    
+    # Prepare trading decision data for tabulation
+    decision_data = [
+        ["Action", decision.get('action').upper()],
+        ["Quantity", decision.get('quantity')],
+        ["Confidence", f"{decision.get('confidence'):.1f}%"],
+    ]
     
     # Print the decision
     print("\nTRADING DECISION:")
-    print(f"Action: {decision.get('action').upper()}")
-    print(f"Quantity: {decision.get('quantity')}")
-    print(f"Confidence: {decision.get('confidence'):.1f}")
+    print(tabulate(decision_data, 
+                  tablefmt='grid',
+                  colalign=("left", "right")))
     print(f"\nReasoning: {decision.get('reasoning')}")
+
