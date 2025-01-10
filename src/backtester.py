@@ -7,8 +7,8 @@ import argparse
 import json
 
 # Updated import to match your new naming convention
-from trade_system import run_trading_system
-from tools.api import get_price_data
+from main import run_trading_system
+from tools.api import fetch_price_data
 
 
 class TradingBacktester:
@@ -105,7 +105,7 @@ class TradingBacktester:
             action, quantity = self.parse_agent_decision(agent_output)
 
             # Fetch current price data
-            df = get_price_data(self.ticker, lookback_start, current_date_str)
+            df = fetch_price_data(self.ticker, lookback_start, current_date_str)
             current_price = df.iloc[-1]["close"]
 
             # Execute the trade with validation
