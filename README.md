@@ -66,19 +66,12 @@ cd ai-venture-fund
    cp .env.example .env
    ```
 
-   **Mac/Linux:**
+Set the API keys in the .env file:
 
-   ```bash
-   export OPENAI_API_KEY='your-api-key-here'
-   export FINANCIAL_DATASETS_API_KEY='your-api-key-here'
-   ```
-
-   **Windows:**
-
-   ```powershell
-   $env:OPENAI_API_KEY='your-api-key-here'
-   $env:FINANCIAL_DATASETS_API_KEY='your-api-key-here'
-   ```
+```
+OPENAI_API_KEY=your-openai-api-key
+FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
+```
 
 ### Installation Using Docker
 
