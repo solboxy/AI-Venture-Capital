@@ -107,14 +107,7 @@ docker run -it ai-venture-fund --ticker "AAPL" --start-date 2024-01-01 --end-dat
 
 **Example Output:**
 
-```json
-{
-  "action": "invest",
-  "amount": 750000,
-  "ticker": "AAPL",
-  "company": "Apple Inc."
-}
-```
+<img width="992" alt="Screenshot 2025-01-06 at 5 50 17 PM" src="https://github.com/user-attachments/assets/e8ca04bf-9989-4a7d-a8b4-34e04666663b" />
 
 ### Running Backtests
 
