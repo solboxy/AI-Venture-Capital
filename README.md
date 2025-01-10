@@ -128,14 +128,7 @@ poetry run python src/backtester.py --ticker "MSFT" --start-date 2023-01-01 --en
 
 **Example Output:**
 
-```
-Starting backtest...
-Date         Ticker    Action    Amount       Cash       Portfolio Value
-----------------------------------------------------------------------
-2023-01-01   MSFT      invest    500,000.00   500,000.00    1,000,000.00
-2023-06-30   MSFT      hold            0.00   500,000.00    1,050,000.00
-2023-12-31   MSFT      divest    550,000.00         0.00    1,050,000.00
-```
+<img width="941" alt="Screenshot" src="https://github.com/user-attachments/assets/00e794ea-8628-44e6-9a84-8f8a31ad3b47" />
 
 ### Analyzing Agent Decisions
 
