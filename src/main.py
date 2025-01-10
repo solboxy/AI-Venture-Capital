@@ -134,4 +134,18 @@ if __name__ == "__main__":
         show_reasoning=args.show_reasoning
     )
     print("\nFinal Result:")
-    print(final_result)
+    decision = final_result.get("decision")
+    
+    print("\nANALYST SIGNALS:")
+    for agent, signal in final_result.get("analyst_signals").items():
+        agent_name = agent.replace("_agent", "").replace("_", " ").title()
+        print(f"\n{agent_name}:")
+        print(f"Signal: {signal.get('signal', '').upper()}")
+        print(f"Confidence: {signal.get('confidence')}%")
+    
+    # Print the decision
+    print("\nTRADING DECISION:")
+    print(f"Action: {decision.get('action').upper()}")
+    print(f"Quantity: {decision.get('quantity')}")
+    print(f"Confidence: {decision.get('confidence'):.1f}")
+    print(f"\nReasoning: {decision.get('reasoning')}")
