@@ -12,6 +12,8 @@ from graph.state import TradingAgentState
 
 import argparse
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
 
 
 ##### Run the Trading System #####
@@ -113,14 +115,7 @@ if __name__ == "__main__":
     if not args.start_date:
         # Calculate 3 months before end_date
         end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-        if end_date_obj.month > 3:
-            start_date_obj = end_date_obj.replace(month=end_date_obj.month - 3)
-        else:
-            # Wrap around to previous year if month <= 3
-            start_date_obj = end_date_obj.replace(
-                year=end_date_obj.year - 1, month=end_date_obj.month + 9
-            )
-        start_date = start_date_obj.strftime("%Y-%m-%d")
+        start_date = (end_date_obj - relativedelta(months=3)).strftime("%Y-%m-%d")
     else:
         start_date = args.start_date
 
