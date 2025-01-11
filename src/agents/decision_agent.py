@@ -11,6 +11,11 @@ def final_decision_agent(state: TradingAgentState):
     Makes final trading decisions and generates orders.
     """
 
+    # Extract the data
+    data = state["data"]
+    portfolio = data["portfolio"]
+    analyst_signals = data.get("analyst_signals", {})
+
     # Create the prompt template
     template = ChatPromptTemplate.from_messages(
         [
@@ -60,18 +65,14 @@ def final_decision_agent(state: TradingAgentState):
         ]
     )
 
-    # Access the portfolio and analyst signals
-    portfolio = state["data"]["portfolio"]
-    analyst_signals = state["data"]["analyst_signals"]
-
     # Generate the prompt parameters
     prompt = template.invoke(
         {
-            "technical_signal": analyst_signals.get("technical_analyst_agent", {}).get("signal", ""),
-            "fundamentals_signal": analyst_signals.get("fundamentals_agent", {}).get("signal", ""),
-            "sentiment_signal": analyst_signals.get("sentiment_agent", {}).get("signal", ""),
-            "valuation_signal": analyst_signals.get("valuation_agent", {}).get("signal", ""),
-            "max_position_size": analyst_signals.get("risk_management_agent", {}).get("max_position_size", 0),
+            "technical_signal": analyst_signals.get("technical_analysis_agent", {}).get("signal", ""),
+            "fundamental_signal": analyst_signals.get("fundamental_analysis_agent", {}).get("signal", ""),
+            "sentiment_signal": analyst_signals.get("sentiment_analysis_agent", {}).get("signal", ""),
+            "valuation_signal": analyst_signals.get("valuation_analysis_agent", {}).get("signal", ""),
+            "max_position_size": analyst_signals.get("risk_evaluation_agent", {}).get("max_position_size", 0),
             "portfolio_cash": f"{portfolio['cash']:.2f}",
             "portfolio_stock": portfolio["stock"],
         }
@@ -88,7 +89,7 @@ def final_decision_agent(state: TradingAgentState):
     )
 
     # Print the decision if the flag is set
-    if state["metadata"]["show_reasoning"]:
+    if state["metadata"].get("show_reasoning", False):
         show_agent_reasoning(message.content, "Final Decision Agent")
 
     return {
