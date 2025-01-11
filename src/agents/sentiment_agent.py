@@ -4,8 +4,6 @@ import json
 
 from langchain_core.messages import HumanMessage
 from graph.state import TradingAgentState, show_agent_reasoning
-
-# Updated tool function import
 from tools.api import fetch_insider_trades
 
 ##### Sentiment Analysis Agent #####
@@ -17,14 +15,18 @@ def sentiment_analysis_agent(state: TradingAgentState):
     - Positive transaction_shares => 'bullish'
     """
     data = state.get("data", {})
+    show_reasoning = state["metadata"].get("show_reasoning", False)
     end_date = data.get("end_date")
     ticker = data.get("ticker")
+
+    # Ensure "analyst_signals" exists
+    data.setdefault("analyst_signals", {})
 
     # Fetch the insider trades
     insider_trades = fetch_insider_trades(
         ticker=ticker,
         end_date=end_date,
-        limit=5,
+        max_results=5,  # Updated to match function signature
     )
 
     # Convert transaction_shares to a Series, dropping NaN values
@@ -49,17 +51,15 @@ def sentiment_analysis_agent(state: TradingAgentState):
     # Calculate confidence_level based on proportion
     total_signals = len(analysis_signals)
     if total_signals > 0:
-        confidence_level = max(bullish_signals, bearish_signals) / total_signals
+        confidence = max(bullish_signals, bearish_signals) / total_signals
     else:
-        confidence_level = 0.0
+        confidence = 0.0
 
-    reasoning_text = (
-        f"Bullish signals: {bullish_signals}, Bearish signals: {bearish_signals}"
-    )
+    reasoning_text = f"Bullish signals: {bullish_signals}, Bearish signals: {bearish_signals}"
 
     message_content = {
         "signal": overall_signal,
-        "confidence_level": f"{round(confidence_level * 100)}%",
+        "confidence_level": f"{round(confidence * 100)}%",
         "reasoning": reasoning_text,
     }
 
@@ -74,10 +74,9 @@ def sentiment_analysis_agent(state: TradingAgentState):
     )
 
     # Add the signal to the analyst_signals dictionary
-    state["data"].setdefault("analyst_signals", {})
-    state["data"]["analyst_signals"]["sentiment_analysis_agent"] = {
+    data["analyst_signals"]["sentiment_analysis_agent"] = {
         "signal": overall_signal,
-        "confidence_level": f"{round(confidence_level * 100)}%",
+        "confidence_level": f"{round(confidence * 100)}%",
         "reasoning": reasoning_text,
     }
 
