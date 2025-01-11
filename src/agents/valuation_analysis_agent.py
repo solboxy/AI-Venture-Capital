@@ -22,12 +22,15 @@ def valuation_analysis_agent(state: TradingAgentState):
     data = state["data"]
     end_date = data["end_date"]
 
+    # Ensure the "analyst_signals" dict exists
+    data.setdefault("analyst_signals", {})
+
     # 1. Fetch financial metrics
     financial_metrics = fetch_financial_metrics(
         ticker=data["ticker"],
         report_period=end_date,
         period="ttm",
-        limit=1,
+        max_results=1,  # Updated to match function signature
     )
     metrics = financial_metrics[0]
 
@@ -42,8 +45,15 @@ def valuation_analysis_agent(state: TradingAgentState):
             "working_capital",
         ],
         period="ttm",
-        limit=2,
+        max_results=2,  # Updated to match function signature
     )
+    if len(financial_line_items) < 2:
+        # Just a safety check if the API doesn't return enough records
+        return {
+            "messages": [],
+            "data": data
+        }
+
     current_financial_line_item = financial_line_items[0]
     previous_financial_line_item = financial_line_items[1]
 
@@ -77,8 +87,8 @@ def valuation_analysis_agent(state: TradingAgentState):
     market_cap = fetch_market_cap(ticker=data["ticker"])
 
     # 7. Calculate valuation gap
-    dcf_gap = (dcf_value - market_cap) / market_cap
-    owner_earnings_gap = (owner_earnings_value - market_cap) / market_cap
+    dcf_gap = (dcf_value - market_cap) / market_cap if market_cap else 0
+    owner_earnings_gap = (owner_earnings_value - market_cap) / market_cap if market_cap else 0
     valuation_gap = (dcf_gap + owner_earnings_gap) / 2
 
     # 8. Determine overall signal
@@ -90,18 +100,20 @@ def valuation_analysis_agent(state: TradingAgentState):
         signal = "neutral"
 
     # 9. Build reasoning
+    dcf_details = f"Intrinsic Value: ${dcf_value:,.2f}, Market Cap: ${market_cap:,.2f}, Gap: {dcf_gap:.1%}"
+    owner_earnings_details = f"Owner Earnings Value: ${owner_earnings_value:,.2f}, Market Cap: ${market_cap:,.2f}, Gap: {owner_earnings_gap:.1%}"
     reasoning = {
         "dcf_analysis": {
             "signal": (
                 "bullish" if dcf_gap > 0.15 else "bearish" if dcf_gap < -0.15 else "neutral"
             ),
-            "details": f"Intrinsic Value: ${dcf_value:,.2f}, Market Cap: ${market_cap:,.2f}, Gap: {dcf_gap:.1%}",
+            "details": dcf_details,
         },
         "owner_earnings_analysis": {
             "signal": (
                 "bullish" if owner_earnings_gap > 0.15 else "bearish" if owner_earnings_gap < -0.15 else "neutral"
             ),
-            "details": f"Owner Earnings Value: ${owner_earnings_value:,.2f}, Market Cap: ${market_cap:,.2f}, Gap: {owner_earnings_gap:.1%}",
+            "details": owner_earnings_details,
         },
     }
 
@@ -125,7 +137,7 @@ def valuation_analysis_agent(state: TradingAgentState):
         show_agent_reasoning(message_content, "Valuation Analysis Agent")
 
     # 13. Store signals in data["analyst_signals"]
-    state["data"]["analyst_signals"]["valuation_analysis_agent"] = {
+    data["analyst_signals"]["valuation_analysis_agent"] = {
         "signal": signal,
         "confidence_level": confidence_level,
         "reasoning": reasoning,
