@@ -67,11 +67,11 @@ def final_decision_agent(state: TradingAgentState):
     # Generate the prompt parameters
     prompt = template.invoke(
         {
-            "technical_signal": analyst_signals["technical_analysis_agent"]["signal"],
-            "fundamental_signal": analyst_signals["fundamental_analysis_agent"]["signal"],
-            "sentiment_signal": analyst_signals["sentiment_analysis_agent"]["signal"],
-            "valuation_signal": analyst_signals["valuation_analysis_agent"]["signal"],
-            "max_position_size": analyst_signals["risk_evaluation_agent"]["max_position_size"],
+            "technical_signal": analyst_signals.get("technical_analyst_agent", {}).get("signal", ""),
+            "fundamentals_signal": analyst_signals.get("fundamentals_agent", {}).get("signal", ""),
+            "sentiment_signal": analyst_signals.get("sentiment_agent", {}).get("signal", ""),
+            "valuation_signal": analyst_signals.get("valuation_agent", {}).get("signal", ""),
+            "max_position_size": analyst_signals.get("risk_management_agent", {}).get("max_position_size", 0),
             "portfolio_cash": f"{portfolio['cash']:.2f}",
             "portfolio_stock": portfolio["stock"],
         }

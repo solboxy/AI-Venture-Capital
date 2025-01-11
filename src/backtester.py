@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
 import json
+import questionary
+
 
 # Updated import to match your new naming convention
 from main import run_trading_system
@@ -17,19 +19,14 @@ class TradingBacktester:
     using a multi-agent trading system.
     """
 
-    def __init__(
-        self,
-        trading_agent,  # formerly 'agent'
-        ticker,
-        start_date,
-        end_date,
-        initial_capital,
-    ):
+    def __init__(self, trading_agent, ticker, start_date, end_date, initial_capital, selected_analysts=None):
+    
         self.trading_agent = trading_agent
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
         self.initial_capital = initial_capital
+        self.selected_analysts = selected_analysts
 
         # Portfolio structure
         self.portfolio = {"cash": initial_capital, "stock": 0}
