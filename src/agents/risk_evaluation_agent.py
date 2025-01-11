@@ -11,39 +11,51 @@ def risk_evaluation_agent(state: TradingAgentState):
     """
     Evaluates portfolio risk and sets position limits based on a comprehensive risk analysis.
     """
-    show_reasoning = state["metadata"]["show_reasoning"]
-    portfolio = state["data"]["portfolio"]
+    show_reasoning = state["metadata"].get("show_reasoning", False)
     data = state["data"]
+    portfolio = data["portfolio"]
+
     start_date = data["start_date"]
     end_date = data["end_date"]
+
+    # Ensure "analyst_signals" exists
+    data.setdefault("analyst_signals", {})
+
     # Get the historical price data
     prices = fetch_prices(
         ticker=data["ticker"], 
         start_date=start_date, 
         end_date=end_date,
     )
-
     prices_df = convert_prices_to_dataframe(prices)
+
     # Fetch messages from other agents
+    # (They must exist in state["messages"], or handle exceptions.)
     technical_message = next(
-        msg for msg in state["messages"] if msg.name == "technical_analysis_agent"
+        (msg for msg in state["messages"] if msg.name == "technical_analysis_agent"), None
     )
     fundamental_message = next(
-        msg for msg in state["messages"] if msg.name == "fundamental_analysis_agent"
+        (msg for msg in state["messages"] if msg.name == "fundamental_analysis_agent"), None
     )
     sentiment_message = next(
-        msg for msg in state["messages"] if msg.name == "sentiment_analysis_agent"
+        (msg for msg in state["messages"] if msg.name == "sentiment_analysis_agent"), None
     )
 
-    try:
-        fundamental_signals = json.loads(fundamental_message.content)
-        technical_signals = json.loads(technical_message.content)
-        sentiment_signals = json.loads(sentiment_message.content)
-    except Exception:
-        # Fallback to literal_eval if JSON parse fails
-        fundamental_signals = ast.literal_eval(fundamental_message.content)
-        technical_signals = ast.literal_eval(technical_message.content)
-        sentiment_signals = ast.literal_eval(sentiment_message.content)
+    # Parse content
+    def robust_parse(msg):
+        if not msg:
+            return {}
+        try:
+            return json.loads(msg.content)
+        except:
+            try:
+                return ast.literal_eval(msg.content)
+            except:
+                return {}
+
+    fundamental_signals = robust_parse(fundamental_message)
+    technical_signals = robust_parse(technical_message)
+    sentiment_signals = robust_parse(sentiment_message)
 
     agent_signals = {
         "fundamental": fundamental_signals,
@@ -79,7 +91,8 @@ def risk_evaluation_agent(state: TradingAgentState):
         market_risk_score += 1
 
     # 3. Position Size Limits
-    current_stock_value = portfolio["stock"] * prices_df["close"].iloc[-1]
+    current_price = prices_df["close"].iloc[-1]
+    current_stock_value = portfolio["stock"] * current_price
     total_portfolio_value = portfolio["cash"] + current_stock_value
     base_position_size = total_portfolio_value * 0.25  # Start with 25%
 
@@ -97,11 +110,9 @@ def risk_evaluation_agent(state: TradingAgentState):
         "slight_decline": -0.05,
     }
     stress_test_results = {}
-    current_position_value = current_stock_value
-
     for scenario, decline in stress_test_scenarios.items():
-        potential_loss = current_position_value * decline
-        denominator = portfolio["cash"] + current_position_value
+        potential_loss = current_stock_value * decline
+        denominator = portfolio["cash"] + current_stock_value
         portfolio_impact = potential_loss / denominator if denominator != 0 else math.nan
         stress_test_results[scenario] = {
             "potential_loss": potential_loss,
@@ -110,31 +121,39 @@ def risk_evaluation_agent(state: TradingAgentState):
 
     # 5. Risk-Adjusted Signals Analysis
     def parse_confidence(conf_str: str) -> float:
-        return float(conf_str.replace("%", "")) / 100.0
+        # Expects something like "50%" or numeric str
+        if conf_str.endswith("%"):
+            return float(conf_str.replace("%", "")) / 100.0
+        try:
+            return float(conf_str)
+        except:
+            return 0.0
 
     low_confidence = any(
-        parse_confidence(signal["confidence"]) < 0.30 for signal in agent_signals.values()
+        parse_confidence(signal.get("confidence_level", "0%"))
+        < 0.30
+        for signal in agent_signals.values()
     )
 
     # Check for signal divergence (increased uncertainty if all three differ)
-    unique_signals = set(signal["signal"] for signal in agent_signals.values())
-    signal_divergence = 2 if len(unique_signals) == 3 else 0
+    signals_set = set(signal.get("signal", "") for signal in agent_signals.values())
+    # If you have 3 different signals (bullish, neutral, bearish), that's major divergence
+    signal_divergence = 2 if len(signals_set) == 3 else 0
 
-    risk_score = market_risk_score * 2  # Market risk can contribute up to ~6 points total
+    risk_score = market_risk_score * 2  # Market risk can be up to ~6 points
     if low_confidence:
         risk_score += 4  # Add penalty if any confidence < 30%
     risk_score += signal_divergence
-
     # Cap risk score at 10
     risk_score = min(round(risk_score), 10)
 
-    # 6. Generate Trading Action
+    # 6. Generate Trading Action (for illustration)
     if risk_score >= 8:
         trading_action = "hold"
     elif risk_score >= 6:
         trading_action = "reduce"
     else:
-        trading_action = agent_signals["fundamental"]["signal"]
+        trading_action = fundamental_signals.get("signal", "neutral")
 
     message_content = {
         "max_position_size": float(max_position_size),
@@ -160,7 +179,16 @@ def risk_evaluation_agent(state: TradingAgentState):
         name="risk_evaluation_agent",
     )
 
+    # Optionally show reasoning
     if show_reasoning:
         show_agent_reasoning(message_content, "Risk Evaluation Agent")
 
-    return {"messages": state["messages"] + [message]}
+    # Store the result in analyst_signals
+    data["analyst_signals"]["risk_evaluation_agent"] = {
+        "max_position_size": float(max_position_size),
+        "risk_score": risk_score,
+        "trading_action": trading_action,
+        "reasoning": message_content["reasoning"],
+    }
+
+    return {"messages": state["messages"] + [message], "data": data}
