@@ -1,60 +1,82 @@
 import argparse
+import logging
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from typing import Dict, Any
+from typing import Any, Dict
 
+from dateutil.relativedelta import relativedelta
+
+from agents.decision_agent import final_decision_agent
+from agents.fundamentals_agent import fundamental_analysis_agent
+from agents.risk_evaluation_agent import risk_evaluation_agent
+from agents.sentiment_agent import sentiment_analysis_agent
+from agents.technical_analysis_agent import technical_analysis_agent
+from agents.valuation_analysis_agent import valuation_analysis_agent
+
+from graph.state import TradingAgentState
 from langchain_core.messages import HumanMessage
 from langgraph.graph import END, StateGraph
 
-# Agents
-from agents.fundamentals_agent import fundamental_analysis_agent
-from agents.technical_analysis_agent import technical_analysis_agent
-from agents.sentiment_agent import sentiment_analysis_agent
-from agents.risk_evaluation_agent import risk_evaluation_agent
-from agents.decision_agent import final_decision_agent
-from agents.valuation_analysis_agent import valuation_analysis_agent
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
-# State and utilities
-from graph.state import TradingAgentState
-from tabulate import tabulate
-
-
-##### Define the Trading Workflow #####
-trading_workflow = StateGraph(TradingAgentState)
 
 def gather_market_data_agent(state: TradingAgentState) -> TradingAgentState:
     """
-    Placeholder agent that can load/initialize data if needed.
-    Currently returns the state unchanged.
+    Placeholder agent that could fetch external data and incorporate it
+    into the 'data' field of the TradingAgentState.
+
+    For demonstration, this function simply returns the state unchanged.
+    In a real system, you could fetch or validate data here.
     """
+    logger.info("Gathering market data for ticker=%s", state["data"].get("ticker"))
+    # If needed, do actual data fetching or validation
     return state
 
-# Register the agent nodes to the workflow
-trading_workflow.add_node("gather_market_data_agent", gather_market_data_agent)
-trading_workflow.add_node("technical_analysis_agent", technical_analysis_agent)
-trading_workflow.add_node("fundamental_analysis_agent", fundamental_analysis_agent)
-trading_workflow.add_node("sentiment_analysis_agent", sentiment_analysis_agent)
-trading_workflow.add_node("valuation_analysis_agent", valuation_analysis_agent)
-trading_workflow.add_node("risk_evaluation_agent", risk_evaluation_agent)
-trading_workflow.add_node("final_decision_agent", final_decision_agent)
 
-# Define the workflow edges
-trading_workflow.set_entry_point("gather_market_data_agent")
-trading_workflow.add_edge("gather_market_data_agent", "technical_analysis_agent")
-trading_workflow.add_edge("gather_market_data_agent", "fundamental_analysis_agent")
-trading_workflow.add_edge("gather_market_data_agent", "sentiment_analysis_agent")
-trading_workflow.add_edge("gather_market_data_agent", "valuation_analysis_agent")
+def create_trading_workflow() -> StateGraph:
+    """
+    Creates and configures a multi-agent workflow (StateGraph) for trading decisions.
 
-trading_workflow.add_edge("technical_analysis_agent", "risk_evaluation_agent")
-trading_workflow.add_edge("fundamental_analysis_agent", "risk_evaluation_agent")
-trading_workflow.add_edge("sentiment_analysis_agent", "risk_evaluation_agent")
-trading_workflow.add_edge("valuation_analysis_agent", "risk_evaluation_agent")
+    Returns:
+        StateGraph: A compiled StateGraph that defines the multi-agent process flow.
+    """
+    trading_workflow = StateGraph(TradingAgentState)
 
-trading_workflow.add_edge("risk_evaluation_agent", "final_decision_agent")
-trading_workflow.add_edge("final_decision_agent", END)
+    # Register agent nodes
+    trading_workflow.add_node("gather_market_data_agent", gather_market_data_agent)
+    trading_workflow.add_node("technical_analysis_agent", technical_analysis_agent)
+    trading_workflow.add_node("fundamental_analysis_agent", fundamental_analysis_agent)
+    trading_workflow.add_node("sentiment_analysis_agent", sentiment_analysis_agent)
+    trading_workflow.add_node("valuation_analysis_agent", valuation_analysis_agent)
+    trading_workflow.add_node("risk_evaluation_agent", risk_evaluation_agent)
+    trading_workflow.add_node("final_decision_agent", final_decision_agent)
 
-# Compile the workflow
-trading_app = trading_workflow.compile()
+    # Define data flow edges
+    trading_workflow.set_entry_point("gather_market_data_agent")
+
+    # Example: gather_market_data_agent feeds four agents
+    trading_workflow.add_edge("gather_market_data_agent", "technical_analysis_agent")
+    trading_workflow.add_edge("gather_market_data_agent", "fundamental_analysis_agent")
+    trading_workflow.add_edge("gather_market_data_agent", "sentiment_analysis_agent")
+    trading_workflow.add_edge("gather_market_data_agent", "valuation_analysis_agent")
+
+    # All feed into the risk evaluation
+    trading_workflow.add_edge("technical_analysis_agent", "risk_evaluation_agent")
+    trading_workflow.add_edge("fundamental_analysis_agent", "risk_evaluation_agent")
+    trading_workflow.add_edge("sentiment_analysis_agent", "risk_evaluation_agent")
+    trading_workflow.add_edge("valuation_analysis_agent", "risk_evaluation_agent")
+
+    # Then final decision
+    trading_workflow.add_edge("risk_evaluation_agent", "final_decision_agent")
+    trading_workflow.add_edge("final_decision_agent", END)
+
+    # Compile the workflow
+    compiled_workflow = trading_workflow.compile()
+    return compiled_workflow
 
 
 def run_trading_system(
@@ -65,20 +87,28 @@ def run_trading_system(
     show_reasoning: bool = False
 ) -> str:
     """
-    Orchestrates the multi-agent workflow: gather market data, run technical/fundamental/
-    sentiment analyses, evaluate risk, and produce a final trading decision.
+    Orchestrates the multi-agent workflow: 
+    1) Gathers market data,
+    2) Runs technical/fundamental/sentiment/valuation analyses,
+    3) Evaluates risk,
+    4) Produces a final trading decision.
 
     Args:
-        ticker (str): The stock ticker symbol.
-        start_date (str): Start date in "YYYY-MM-DD" format.
-        end_date (str): End date in "YYYY-MM-DD" format.
-        portfolio (dict): Dictionary representing the portfolio, e.g. {"cash": 100000, "stock": 50}.
-        show_reasoning (bool): If True, each agent prints additional reasoning.
+        ticker (str): Stock ticker (e.g., "AAPL").
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
+        portfolio (dict): A dictionary representing the portfolio. Example: {"cash": 100_000, "stock": 0}.
+        show_reasoning (bool): Whether to show verbose agent reasoning logs.
 
     Returns:
-        str: The final decision from the system in JSON format (action, quantity, etc.).
+        str: JSON string containing the final decision (e.g., {"action":"buy","quantity":10,"confidence":0.9}).
     """
+    logger.info("Running trading system for ticker=%s from %s to %s", ticker, start_date, end_date)
+
+    trading_app = create_trading_workflow()  # Build the multi-agent workflow
+
     try:
+        # Invoke the compiled workflow
         final_state = trading_app.invoke(
             {
                 "messages": [
@@ -90,60 +120,69 @@ def run_trading_system(
                     "start_date": start_date,
                     "end_date": end_date,
                 },
-                "metadata": {"show_reasoning": show_reasoning},
-            }
+                "metadata": {
+                    "show_reasoning": show_reasoning,
+                },
+            },
         )
-        # Return the final agent's message content (the decision in JSON).
+        # Return the final agent's output in JSON format
+        logger.info("Trading system workflow completed successfully.")
         return final_state["messages"][-1].content
+
     except Exception as e:
-        # Log or raise an error if the workflow fails
-        error_msg = f"[ERROR] Trading system failed: {e}"
-        print(error_msg)
-        # You might choose to re-raise or return a fallback JSON response
-        raise RuntimeError(error_msg) from e
+        logger.error("Trading system workflow failed: %s", e, exc_info=True)
+        # Optionally raise or return a fallback JSON response
+        # For now, we raise a RuntimeError to signal failure
+        raise RuntimeError("Trading system encountered an error.") from e
 
 
 def main() -> None:
     """
-    Command-line entry point for running the trading system in a single-shot mode
-    (without backtesting).
+    CLI entry point for running the trading system in a single-run mode.
+    
+    Example Usage:
+        python main.py --ticker AAPL --show_reasoning
+        python main.py --ticker TSLA --start-date 2023-01-01 --end-date 2023-04-01
     """
-    parser = argparse.ArgumentParser(description="Run the trading system")
-    parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol (e.g., AAPL)")
-    parser.add_argument("--start-date", type=str, help="Start date (YYYY-MM-DD). Defaults to 3 months before end date")
-    parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD). Defaults to today")
-    parser.add_argument(
-        "--show_reasoning",
-        action="store_true",
-        help="Show reasoning from each agent"
-    )
+    parser = argparse.ArgumentParser(description="Run the multi-agent trading system.")
+    parser.add_argument("--ticker", required=True, help="Stock ticker symbol (e.g., AAPL)")
+    parser.add_argument("--start-date", help="Start date (YYYY-MM-DD). Defaults to 3 months before end date")
+    parser.add_argument("--end-date", help="End date (YYYY-MM-DD). Defaults to today")
+    parser.add_argument("--show_reasoning", action="store_true", help="Show agent reasoning logs")
     args = parser.parse_args()
 
-    # Validate or default the end date
+    # Validate or fallback end_date to "today"
     end_date = args.end_date or datetime.now().strftime("%Y-%m-%d")
-    # Default the start date to 3 months before the end date if none provided
+
+    # If no start_date is provided, default to 3 months before end_date
     if not args.start_date:
-        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+        try:
+            end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError as ve:
+            logger.error("Invalid end date format '%s': %s", end_date, ve)
+            return
         start_date = (end_date_obj - relativedelta(months=3)).strftime("%Y-%m-%d")
     else:
         start_date = args.start_date
 
     # Example portfolio
-    portfolio_example = {"cash": 100000.0, "stock": 0}
+    portfolio_example = {
+        "cash": 100_000.0,
+        "stock": 0
+    }
 
-    # Run the trading system
+    # Run the system
     try:
-        final_result_json = run_trading_system(
+        final_json = run_trading_system(
             ticker=args.ticker,
             start_date=start_date,
             end_date=end_date,
             portfolio=portfolio_example,
             show_reasoning=args.show_reasoning
         )
-        print("\nFinal Decision (JSON):")
-        print(final_result_json)
+        logger.info("Final system decision: %s", final_json)
     except RuntimeError as err:
-        print(f"[FATAL] The trading system encountered an error: {err}")
+        logger.critical("System failed to produce a decision: %s", err, exc_info=True)
 
 
 if __name__ == "__main__":
