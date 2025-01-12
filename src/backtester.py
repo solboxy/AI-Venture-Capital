@@ -1,3 +1,4 @@
+# backtester.py
 import argparse
 import json
 import logging
@@ -6,6 +7,9 @@ from typing import Callable, Dict, List, Optional, Union
 
 import pandas as pd
 import matplotlib.pyplot as plt
+
+# 1) Import your multi-agent pipeline from main.py
+from main import run_trading_system
 
 from tools.api import fetch_price_data
 
@@ -20,50 +24,37 @@ logger = logging.getLogger(__name__)
 class TradingBacktester:
     """
     A backtesting class that simulates trades over a specified date range,
-    using a multi-agent trading system.
-
-    Attributes:
-        trading_agent (Callable): A callable that takes in parameters and
-            returns a final decision (in JSON format).
-        ticker (str): The stock ticker symbol to be tested (e.g., "AAPL").
-        start_date (str): The start date for backtesting (YYYY-MM-DD).
-        end_date (str): The end date for backtesting (YYYY-MM-DD).
-        initial_capital (float): Initial amount of cash available.
-        date_frequency (str): Frequency for the date range generation (default: "B").
-        selected_analysts (Optional[List[str]]): If provided, only these analysts will be run.
+    using the multi-agent trading system from main.py each day.
     """
 
     def __init__(
         self,
-        trading_agent: Callable[..., str],
         ticker: str,
         start_date: str,
         end_date: str,
         initial_capital: float,
         date_frequency: str = "B",
-        selected_analysts: Optional[List[str]] = None,
+        show_reasoning: bool = False,
     ) -> None:
         """
         Initialize the TradingBacktester.
 
         Args:
-            trading_agent (Callable[..., str]): The callable to run the trading system.
             ticker (str): Ticker symbol to test (e.g., "AAPL").
             start_date (str): Backtest start date in "YYYY-MM-DD" format.
             end_date (str): Backtest end date in "YYYY-MM-DD" format.
             initial_capital (float): Initial amount of cash to start with.
-            date_frequency (str): Pandas-compatible frequency string (e.g., "B" for business days).
-            selected_analysts (Optional[List[str]]): Names/IDs of analysts to include.
+            date_frequency (str): Pandas frequency string (e.g., "B" for business days).
+            show_reasoning (bool): Whether to show agent reasoning logs in the console.
         """
         self._validate_inputs(ticker, start_date, end_date, initial_capital)
 
-        self.trading_agent = trading_agent
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
         self.initial_capital = initial_capital
         self.date_frequency = date_frequency
-        self.selected_analysts = selected_analysts
+        self.show_reasoning = show_reasoning
 
         # Portfolio structure
         self.portfolio: Dict[str, Union[float, int]] = {
@@ -99,13 +90,8 @@ class TradingBacktester:
 
     def parse_agent_decision(self, agent_output: str) -> (str, int):
         """
-        Parse the JSON output from the agent's final decision.
-
-        Args:
-            agent_output (str): JSON string containing the agent's decision.
-
-        Returns:
-            (action, quantity) as (str, int).
+        Parse the JSON output from the multi-agent system's final decision.
+        Returns (action, quantity) as (str, int).
         """
         try:
             decision = json.loads(agent_output)
@@ -127,7 +113,7 @@ class TradingBacktester:
         current_price: float
     ) -> int:
         """
-        Validate and execute trades based on portfolio constraints.
+        Validate and execute trades based on the current portfolio constraints.
 
         Args:
             action (str): "buy", "sell", or "hold".
@@ -135,7 +121,7 @@ class TradingBacktester:
             current_price (float): Latest stock price.
 
         Returns:
-            int: Actual number of shares traded.
+            int: Actual number of shares traded (could be partial if insufficient cash/shares).
         """
         if quantity < 0:
             logger.warning("Requested trade quantity was negative (%d). Forcing to 0.", quantity)
@@ -165,15 +151,17 @@ class TradingBacktester:
                 return quantity
             return 0
 
-        # Either "hold" or invalid action
+        # Either "hold" or invalid action => no change
         return 0
 
     def run_agent_backtest(self) -> None:
         """
         Run the backtesting loop, simulating trades over a range of dates.
+        Each day, calls the multi-agent pipeline from main.py to get the decision.
         """
         dates = pd.date_range(self.start_date, self.end_date, freq=self.date_frequency)
-        logger.info("Starting backtest for ticker %s from %s to %s", self.ticker, self.start_date, self.end_date)
+        logger.info("Starting backtest for ticker %s from %s to %s",
+                    self.ticker, self.start_date, self.end_date)
 
         # Header for daily logging
         logger.info(
@@ -185,42 +173,44 @@ class TradingBacktester:
             current_str = current_date.strftime("%Y-%m-%d")
             lookback_start = (current_date - timedelta(days=30)).strftime("%Y-%m-%d")
 
-            # Call the trading agent
+            # 1) Call your multi-agent pipeline to get the final decision
             try:
-                final_state_str = self.trading_agent(
+                agent_output = run_trading_system(
                     ticker=self.ticker,
                     start_date=lookback_start,
                     end_date=current_str,
                     portfolio=self.portfolio,
+                    show_reasoning=self.show_reasoning
                 )
             except Exception as e:
                 logger.error("Agent call failed on %s: %s", current_str, e)
                 continue
 
-            action, quantity = self.parse_agent_decision(final_state_str)
+            # 2) Parse the decision (action, quantity)
+            action, quantity = self.parse_agent_decision(agent_output)
 
-            # Fetch current price
+            # 3) Get the current price (if no data, skip)
             df = fetch_price_data(self.ticker, lookback_start, current_str)
             if df.empty:
-                # No data for this date, skip
+                # No price data for this date, skip
                 continue
             current_price = df.iloc[-1]["close"]
 
-            # Execute the trade
+            # 4) Execute the trade
             traded_qty = self.execute_agent_trade(action, quantity, current_price)
 
-            # Calculate total portfolio value
+            # 5) Calculate total portfolio value
             total_value = float(self.portfolio["cash"]) + float(self.portfolio["stock"]) * current_price
             self.portfolio["portfolio_value"] = total_value
 
-            # Log daily stats
+            # 6) Log daily stats
             logger.info(
                 "%-10s  %-6s  %-6s  %-8d  %-8.2f  %-12.2f  %-8d  %-12.2f",
                 current_str, self.ticker, action, traded_qty, current_price,
                 self.portfolio["cash"], self.portfolio["stock"], total_value
             )
 
-            # Record performance
+            # 7) Record performance
             self.portfolio_values.append({
                 "Date": current_date,
                 "Portfolio Value": total_value,
@@ -254,7 +244,7 @@ class TradingBacktester:
         plt.ylabel("Portfolio Value ($)")
         plt.show()
 
-        # Calculate daily return, Sharpe ratio, max drawdown
+        # Calculate daily return, Sharpe ratio, and max drawdown
         df_perf["Daily Return"] = df_perf["Portfolio Value"].pct_change()
         mean_daily_ret = df_perf["Daily Return"].mean()
         std_daily_ret = df_perf["Daily Return"].std()
@@ -262,6 +252,7 @@ class TradingBacktester:
         if std_daily_ret == 0:
             sharpe_ratio = 0.0
         else:
+            # Annualize using ~252 trading days/year
             sharpe_ratio = (mean_daily_ret / std_daily_ret) * (252 ** 0.5)
 
         logger.info("Mean Daily Return: %.4f  |  StdDev of Daily Return: %.4f", mean_daily_ret, std_daily_ret)
@@ -277,9 +268,9 @@ class TradingBacktester:
 
 def main():
     """
-    CLI entry point for running a backtest simulation.
+    CLI entry point for running a backtest simulation, using the multi-agent pipeline.
     """
-    parser = argparse.ArgumentParser(description="Run backtesting simulation.")
+    parser = argparse.ArgumentParser(description="Run backtesting simulation with multi-agent pipeline.")
     parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol, e.g. AAPL")
     parser.add_argument("--end_date", type=str, default=datetime.now().strftime("%Y-%m-%d"),
                         help="End date in YYYY-MM-DD format")
@@ -289,23 +280,19 @@ def main():
     parser.add_argument("--initial_capital", type=float, default=100000.0,
                         help="Initial capital (default: 100000)")
     parser.add_argument("--date_freq", type=str, default="B",
-                        help="Pandas frequency for date range, default is 'B' (business days).")
+                        help="Pandas frequency for date range (default: 'B' for business days).")
+    parser.add_argument("--show_reasoning", action="store_true",
+                        help="If set, logs agent reasoning to the console.")
     args = parser.parse_args()
 
-    # Placeholder for your main trading system
-    # You may replace this with your actual multi-agent function
-    def example_trading_agent(**kwargs):
-        # Example: return a JSON string indicating "hold" or "buy/sell"
-        return json.dumps({"action": "hold", "quantity": 0})
-
-    # Create a TradingBacktester instance
+    # Instantiate the backtester
     backtester = TradingBacktester(
-        trading_agent=example_trading_agent,
         ticker=args.ticker,
         start_date=args.start_date,
         end_date=args.end_date,
         initial_capital=args.initial_capital,
-        date_frequency=args.date_freq
+        date_frequency=args.date_freq,
+        show_reasoning=args.show_reasoning,
     )
 
     # Run the backtest
