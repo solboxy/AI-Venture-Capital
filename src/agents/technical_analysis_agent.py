@@ -21,10 +21,13 @@ def technical_analysis_agent(state: TradingAgentState):
     4. Volatility Analysis
     5. Statistical Arbitrage Signals
     """
-    show_reasoning = state["metadata"]["show_reasoning"]
+    show_reasoning = state["metadata"].get("show_reasoning", False)
     data = state["data"]
     start_date = data["start_date"]
     end_date = data["end_date"]
+
+    # Ensure "analyst_signals" exists
+    data.setdefault("analyst_signals", {})
 
     # 1. Fetch and convert historical price data
     prices = fetch_prices(
@@ -104,7 +107,7 @@ def technical_analysis_agent(state: TradingAgentState):
         show_agent_reasoning(analysis_report, "Technical Analysis Agent")
 
     # 7. Store signal in data["analyst_signals"]
-    state["data"]["analyst_signals"]["technical_analysis_agent"] = {
+    data["analyst_signals"]["technical_analysis_agent"] = {
         "signal": analysis_report["signal"],
         "confidence_level": analysis_report["confidence_level"],
         "reasoning": analysis_report["strategy_signals"],
