@@ -7,8 +7,7 @@ import argparse
 import json
 import questionary
 
-
-# Updated import to match your new naming convention
+# Updated import to match your new naming
 from main import run_trading_system
 from tools.api import fetch_price_data
 
@@ -20,7 +19,6 @@ class TradingBacktester:
     """
 
     def __init__(self, trading_agent, ticker, start_date, end_date, initial_capital, selected_analysts=None):
-    
         self.trading_agent = trading_agent
         self.ticker = ticker
         self.start_date = start_date
@@ -63,6 +61,7 @@ class TradingBacktester:
                     self.portfolio["cash"] -= max_quantity * current_price
                     return max_quantity
                 return 0
+
         elif action == "sell" and quantity > 0:
             quantity = min(quantity, self.portfolio["stock"])
             if quantity > 0:
@@ -70,6 +69,7 @@ class TradingBacktester:
                 self.portfolio["stock"] -= quantity
                 return quantity
             return 0
+
         return 0
 
     def run_agent_backtest(self):
@@ -91,18 +91,22 @@ class TradingBacktester:
             current_date_str = current_date.strftime("%Y-%m-%d")
 
             # Call the trading agent
-            agent_output = self.trading_agent(
+            final_state_str = self.trading_agent(
                 ticker=self.ticker,
                 start_date=lookback_start,
                 end_date=current_date_str,
                 portfolio=self.portfolio,
             )
+            # `final_state_str` is the final decision content (JSON).
 
             # Parse the final decision
-            action, quantity = self.parse_agent_decision(agent_output)
+            action, quantity = self.parse_agent_decision(final_state_str)
 
             # Fetch current price data
             df = fetch_price_data(self.ticker, lookback_start, current_date_str)
+            if df.empty:
+                # If no data returned, skip
+                continue
             current_price = df.iloc[-1]["close"]
 
             # Execute the trade with validation
@@ -133,6 +137,10 @@ class TradingBacktester:
         """
         performance_df = pd.DataFrame(self.portfolio_values).set_index("Date")
 
+        if performance_df.empty:
+            print("No backtest data to analyze.")
+            return
+
         # Calculate total return
         final_value = self.portfolio["portfolio_value"]
         total_return = (final_value - self.initial_capital) / self.initial_capital
@@ -152,7 +160,10 @@ class TradingBacktester:
         # Calculate Sharpe Ratio (assuming 252 trading days in a year)
         mean_daily_return = performance_df["Daily Return"].mean()
         std_daily_return = performance_df["Daily Return"].std()
-        sharpe_ratio = (mean_daily_return / std_daily_return) * (252**0.5)
+        if std_daily_return == 0:
+            sharpe_ratio = 0
+        else:
+            sharpe_ratio = (mean_daily_return / std_daily_return) * (252**0.5)
         print(f"Sharpe Ratio: {sharpe_ratio:.2f}")
 
         # Calculate Maximum Drawdown
