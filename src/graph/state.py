@@ -3,9 +3,11 @@
 from typing import Annotated, Any, Dict, Sequence, TypedDict
 import operator
 import json
+import logging
 
 from langchain_core.messages import BaseMessage
 
+logger = logging.getLogger(__name__)
 
 def combine_dictionaries(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     """
