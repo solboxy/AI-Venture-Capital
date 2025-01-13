@@ -1,7 +1,18 @@
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import pandas as pd
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
+
+def _get_api_key() -> str:
+    """Retrieves the API key from environment variables, raising a descriptive error if not found."""
+    api_key = os.environ.get("FINANCIAL_DATASETS_API_KEY")
+    if not api_key:
+        raise EnvironmentError("Missing FINANCIAL_DATASETS_API_KEY environment variable.")
+    return api_key
+
 
 def fetch_financial_metrics(
     ticker: str,
@@ -22,10 +33,12 @@ def fetch_financial_metrics(
         List[Dict[str, Any]]: A list of dictionaries containing key-value pairs of financial metrics.
 
     Raises:
-        Exception: If the HTTP request fails (non-200 status code).
+        EnvironmentError: If the API key is not found in environment variables.
+        requests.exceptions.RequestException: If there's a network issue.
+        Exception: If the HTTP request fails with non-200 status code.
         ValueError: If no financial metrics are returned by the API.
     """
-    headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
+    headers = {"X-API-KEY": _get_api_key()}
     url = (
         f"https://api.financialdatasets.ai/financial-metrics/"
         f"?ticker={ticker}"
@@ -33,15 +46,18 @@ def fetch_financial_metrics(
         f"&limit={max_results}"
         f"&period={period}"
     )
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(
-            f"Error fetching financial metrics: {response.status_code} - {response.text}"
-        )
-    data = response.json()
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error("Network or request error while fetching financial metrics: %s", e)
+        raise
+
+    data = response.json() or {}
     financial_metrics = data.get("financial_metrics")
     if not financial_metrics:
-        raise ValueError("No financial metrics returned")
+        raise ValueError(f"No financial metrics returned for ticker={ticker}, report_period={report_period}.")
     return financial_metrics
 
 
@@ -64,10 +80,12 @@ def fetch_line_items(
         List[Dict[str, Any]]: A list of dictionaries containing the requested line item data.
 
     Raises:
-        Exception: If the HTTP request fails (non-200 status code).
+        EnvironmentError: If the API key is missing.
+        requests.exceptions.RequestException: If there's a network error.
+        Exception: If the HTTP request fails with non-200 status code.
         ValueError: If no search results are returned.
     """
-    headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
+    headers = {"X-API-KEY": _get_api_key()}
     url = "https://api.financialdatasets.ai/financials/search/line-items"
 
     body = {
@@ -76,15 +94,18 @@ def fetch_line_items(
         "period": period,
         "limit": max_results
     }
-    response = requests.post(url, headers=headers, json=body)
-    if response.status_code != 200:
-        raise Exception(
-            f"Error fetching line items: {response.status_code} - {response.text}"
-        )
-    data = response.json()
+
+    try:
+        response = requests.post(url, headers=headers, json=body, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error("Network or request error while fetching line items: %s", e)
+        raise
+
+    data = response.json() or {}
     search_results = data.get("search_results")
     if not search_results:
-        raise ValueError("No search results returned")
+        raise ValueError(f"No line item results returned for ticker={ticker}, line_items={line_items}.")
     return search_results
 
 
@@ -105,25 +126,30 @@ def fetch_insider_trades(
         List[Dict[str, Any]]: A list of dictionaries describing each insider trade event.
 
     Raises:
-        Exception: If the HTTP request fails (non-200 status code).
+        EnvironmentError: If the API key is missing.
+        requests.exceptions.RequestException: If there's a network error.
+        Exception: If the HTTP request fails with non-200 status code.
         ValueError: If no insider trades data is returned.
     """
-    headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
+    headers = {"X-API-KEY": _get_api_key()}
     url = (
         f"https://api.financialdatasets.ai/insider-trades/"
         f"?ticker={ticker}"
         f"&filing_date_lte={end_date}"
         f"&limit={max_results}"
     )
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(
-            f"Error fetching insider trades: {response.status_code} - {response.text}"
-        )
-    data = response.json()
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error("Network or request error while fetching insider trades: %s", e)
+        raise
+
+    data = response.json() or {}
     insider_trades = data.get("insider_trades")
     if not insider_trades:
-        raise ValueError("No insider trades returned")
+        raise ValueError(f"No insider trades returned for ticker={ticker} up to {end_date}.")
     return insider_trades
 
 
@@ -138,21 +164,25 @@ def fetch_market_cap(ticker: str) -> float:
         float: The market capitalization of the given ticker.
 
     Raises:
+        EnvironmentError: If the API key is missing.
+        requests.exceptions.RequestException: If there's a network or request error.
         Exception: If the HTTP request fails (non-200 status code).
         ValueError: If the returned data does not include 'market_cap'.
     """
-    headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
+    headers = {"X-API-KEY": _get_api_key()}
     url = f"https://api.financialdatasets.ai/company/facts?ticker={ticker}"
 
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(
-            f"Error fetching market cap data: {response.status_code} - {response.text}"
-        )
-    data = response.json()
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error("Network or request error while fetching market cap: %s", e)
+        raise
+
+    data = response.json() or {}
     company_facts = data.get("company_facts")
     if not company_facts or "market_cap" not in company_facts:
-        raise ValueError("No market cap data found")
+        raise ValueError(f"No 'market_cap' found in company facts for ticker={ticker}.")
     return company_facts["market_cap"]
 
 
@@ -173,10 +203,12 @@ def fetch_prices(
         List[Dict[str, Any]]: A list of dictionaries, each containing date, open, close, high, low, and volume data.
 
     Raises:
+        EnvironmentError: If the API key is missing.
+        requests.exceptions.RequestException: If there's a network or request error.
         Exception: If the HTTP request fails (non-200 status code).
         ValueError: If no price data is returned by the API.
     """
-    headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
+    headers = {"X-API-KEY": _get_api_key()}
     url = (
         f"https://api.financialdatasets.ai/prices/"
         f"?ticker={ticker}"
@@ -185,15 +217,18 @@ def fetch_prices(
         f"&start_date={start_date}"
         f"&end_date={end_date}"
     )
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(
-            f"Error fetching price data: {response.status_code} - {response.text}"
-        )
-    data = response.json()
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error("Network or request error while fetching price data: %s", e)
+        raise
+
+    data = response.json() or {}
     prices = data.get("prices")
     if not prices:
-        raise ValueError("No price data returned")
+        raise ValueError(f"No price data returned for ticker={ticker}, range={start_date} to {end_date}.")
     return prices
 
 
@@ -208,12 +243,25 @@ def convert_prices_to_dataframe(prices: List[Dict[str, Any]]) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame indexed by datetime, containing columns for open, close, high, low, and volume.
     """
+    if not prices:
+        logger.warning("Received an empty list of prices to convert; returning an empty DataFrame.")
+        return pd.DataFrame()
+
     df = pd.DataFrame(prices)
-    df["Date"] = pd.to_datetime(df["time"])
+    if "time" not in df.columns:
+        logger.error("Missing 'time' field in price data. Returning empty DataFrame.")
+        return pd.DataFrame()
+
+    df["Date"] = pd.to_datetime(df["time"], errors='coerce')
     df.set_index("Date", inplace=True)
     numeric_cols = ["open", "close", "high", "low", "volume"]
     for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        else:
+            logger.warning("Expected column '%s' not found in price data. Setting to NaN.", col)
+            df[col] = float('nan')
+
     df.sort_index(inplace=True)
     return df
 
@@ -235,5 +283,11 @@ def fetch_price_data(
         pd.DataFrame: A pandas DataFrame containing the open, close, high, low, and volume data 
                       indexed by date for the specified ticker and date range.
     """
-    prices = fetch_prices(ticker, start_date, end_date)
+    try:
+        prices = fetch_prices(ticker, start_date, end_date)
+    except (EnvironmentError, requests.exceptions.RequestException, ValueError) as e:
+        logger.error("Failed to fetch prices for %s (%s to %s): %s", ticker, start_date, end_date, e)
+        # Return an empty DataFrame to allow the calling function to handle gracefully
+        return pd.DataFrame()
+
     return convert_prices_to_dataframe(prices)
