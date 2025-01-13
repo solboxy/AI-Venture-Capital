@@ -25,6 +25,17 @@ class TradingBacktester:
     """
     A backtesting class that simulates trades over a specified date range,
     using the multi-agent trading system from main.py each day.
+
+    Attributes:
+        ticker (str): Ticker symbol to test (e.g., "AAPL").
+        start_date (str): Backtest start date in YYYY-MM-DD format.
+        end_date (str): Backtest end date in YYYY-MM-DD format.
+        initial_capital (float): Initial amount of cash to start with.
+        date_frequency (str): Pandas frequency string (e.g. "B" for business days).
+        show_reasoning (bool): Whether to show agent reasoning logs in the console.
+        portfolio (Dict[str, Union[float, int]]): Represents the current holdings ('cash' and 'stock').
+        portfolio_values (List[Dict[str, Union[datetime, float]]]): 
+            Stores daily portfolio performance results.
     """
 
     def __init__(
@@ -37,15 +48,17 @@ class TradingBacktester:
         show_reasoning: bool = False,
     ) -> None:
         """
-        Initialize the TradingBacktester.
+        Initializes the TradingBacktester.
 
         Args:
             ticker (str): Ticker symbol to test (e.g., "AAPL").
             start_date (str): Backtest start date in "YYYY-MM-DD" format.
             end_date (str): Backtest end date in "YYYY-MM-DD" format.
             initial_capital (float): Initial amount of cash to start with.
-            date_frequency (str): Pandas frequency string (e.g., "B" for business days).
-            show_reasoning (bool): Whether to show agent reasoning logs in the console.
+            date_frequency (str, optional): Pandas frequency string 
+                (e.g., "B" for business days). Defaults to "B".
+            show_reasoning (bool, optional): Whether to show agent reasoning logs in the console. 
+                Defaults to False.
         """
         self._validate_inputs(ticker, start_date, end_date, initial_capital)
 
@@ -72,7 +85,18 @@ class TradingBacktester:
         end_date: str,
         initial_capital: float
     ) -> None:
-        """Validate constructor inputs."""
+        """
+        Validates constructor inputs.
+
+        Args:
+            ticker (str): Ticker symbol (e.g., "AAPL").
+            start_date (str): Start date in YYYY-MM-DD format.
+            end_date (str): End date in YYYY-MM-DD format.
+            initial_capital (float): Initial capital to start with.
+
+        Raises:
+            ValueError: If the input parameters are invalid.
+        """
         if not ticker or not isinstance(ticker, str):
             raise ValueError("Invalid ticker: must be a non-empty string.")
 
@@ -90,8 +114,17 @@ class TradingBacktester:
 
     def parse_agent_decision(self, agent_output: str) -> (str, int):
         """
-        Parse the JSON output from the multi-agent system's final decision.
-        Returns (action, quantity) as (str, int).
+        Parses the JSON output from the multi-agent system's final decision to determine 
+        what action and quantity to take.
+
+        Args:
+            agent_output (str): JSON string returned by the multi-agent system 
+                                (e.g., '{"action":"buy","quantity":10,"confidence":0.9}').
+
+        Returns:
+            (str, int): A tuple of (action, quantity). 
+                        Action is one of "buy", "sell", or "hold". 
+                        Quantity is the integer number of shares.
         """
         try:
             decision = json.loads(agent_output)
@@ -113,15 +146,15 @@ class TradingBacktester:
         current_price: float
     ) -> int:
         """
-        Validate and execute trades based on the current portfolio constraints.
+        Validates and executes trades based on the current portfolio constraints.
 
         Args:
             action (str): "buy", "sell", or "hold".
             quantity (int): Number of shares to buy or sell.
-            current_price (float): Latest stock price.
+            current_price (float): Latest stock price from the market data.
 
         Returns:
-            int: Actual number of shares traded (could be partial if insufficient cash/shares).
+            int: Actual number of shares traded (may be less than requested if constraints apply).
         """
         if quantity < 0:
             logger.warning("Requested trade quantity was negative (%d). Forcing to 0.", quantity)
@@ -130,6 +163,7 @@ class TradingBacktester:
         if action == "buy" and quantity > 0:
             cost = quantity * current_price
             if cost <= self.portfolio["cash"]:
+                # Execute full buy
                 self.portfolio["stock"] += quantity
                 self.portfolio["cash"] -= cost
                 return quantity
@@ -156,8 +190,9 @@ class TradingBacktester:
 
     def run_agent_backtest(self) -> None:
         """
-        Run the backtesting loop, simulating trades over a range of dates.
-        Each day, calls the multi-agent pipeline from main.py to get the decision.
+        Runs the backtesting loop, simulating trades over the specified date range.
+        Each day, this method calls the multi-agent pipeline from main.py to get a decision,
+        then executes that decision on the current portfolio.
         """
         dates = pd.date_range(self.start_date, self.end_date, freq=self.date_frequency)
         logger.info("Starting backtest for ticker %s from %s to %s",
@@ -173,7 +208,7 @@ class TradingBacktester:
             current_str = current_date.strftime("%Y-%m-%d")
             lookback_start = (current_date - timedelta(days=30)).strftime("%Y-%m-%d")
 
-            # 1) Call your multi-agent pipeline to get the final decision
+            # 1) Call the multi-agent pipeline to get the final decision
             try:
                 agent_output = run_trading_system(
                     ticker=self.ticker,
@@ -220,10 +255,11 @@ class TradingBacktester:
 
     def analyze_agent_performance(self) -> pd.DataFrame:
         """
-        Analyze and display the backtest performance metrics.
+        Analyzes and displays the backtest performance metrics, such as total return, 
+        Sharpe ratio, and max drawdown. Also plots the portfolio value over time.
 
         Returns:
-            pd.DataFrame: DataFrame with daily values and performance stats.
+            pd.DataFrame: A DataFrame with daily portfolio values and performance stats.
         """
         if not self.portfolio_values:
             logger.warning("No backtest data collected. Cannot analyze performance.")
@@ -269,6 +305,8 @@ class TradingBacktester:
 def main():
     """
     CLI entry point for running a backtest simulation, using the multi-agent pipeline.
+    Example usage:
+        python backtester.py --ticker AAPL --start_date 2023-01-01 --end_date 2023-03-01
     """
     parser = argparse.ArgumentParser(description="Run backtesting simulation with multi-agent pipeline.")
     parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol, e.g. AAPL")

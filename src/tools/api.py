@@ -10,7 +10,20 @@ def fetch_financial_metrics(
     max_results: int = 1
 ) -> List[Dict[str, Any]]:
     """
-    Fetch financial metrics from an external API.
+    Fetches financial metrics for a specified ticker from an external API.
+
+    Args:
+        ticker (str): Stock ticker (e.g. "AAPL").
+        report_period (str): The financial report period limit (e.g. "2022-12-31").
+        period (str, optional): Period type (e.g. "annual", "quarter", "ttm"). Defaults to "ttm".
+        max_results (int, optional): Maximum number of records to fetch. Defaults to 1.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries containing key-value pairs of financial metrics.
+
+    Raises:
+        Exception: If the HTTP request fails (non-200 status code).
+        ValueError: If no financial metrics are returned by the API.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = (
@@ -39,7 +52,20 @@ def fetch_line_items(
     max_results: int = 1
 ) -> List[Dict[str, Any]]:
     """
-    Fetch specific financial statement line items (e.g. free_cash_flow) for a given ticker.
+    Fetches specific financial statement line items (e.g., free_cash_flow) for a given ticker.
+
+    Args:
+        ticker (str): Stock ticker symbol.
+        line_items (List[str]): A list of line item names to retrieve (e.g. "free_cash_flow").
+        period (str, optional): Period type (e.g. "annual", "quarter", "ttm"). Defaults to "ttm".
+        max_results (int, optional): The maximum number of records to fetch. Defaults to 1.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries containing the requested line item data.
+
+    Raises:
+        Exception: If the HTTP request fails (non-200 status code).
+        ValueError: If no search results are returned.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = "https://api.financialdatasets.ai/financials/search/line-items"
@@ -68,7 +94,19 @@ def fetch_insider_trades(
     max_results: int = 5
 ) -> List[Dict[str, Any]]:
     """
-    Fetch insider trades for a given ticker up to a specified end date.
+    Fetches insider trades for a given ticker up to a specified end date.
+
+    Args:
+        ticker (str): The stock ticker symbol.
+        end_date (str): The cut-off date for insider trades (e.g. "2023-01-01").
+        max_results (int, optional): Maximum number of trade records to fetch. Defaults to 5.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries describing each insider trade event.
+
+    Raises:
+        Exception: If the HTTP request fails (non-200 status code).
+        ValueError: If no insider trades data is returned.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = (
@@ -91,8 +129,17 @@ def fetch_insider_trades(
 
 def fetch_market_cap(ticker: str) -> float:
     """
-    Fetch the market cap for the given ticker from an external API.
-    Returns a float representing the market cap.
+    Fetches the market cap for the given ticker from an external API.
+
+    Args:
+        ticker (str): The stock ticker symbol.
+
+    Returns:
+        float: The market capitalization of the given ticker.
+
+    Raises:
+        Exception: If the HTTP request fails (non-200 status code).
+        ValueError: If the returned data does not include 'market_cap'.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = f"https://api.financialdatasets.ai/company/facts?ticker={ticker}"
@@ -115,7 +162,19 @@ def fetch_prices(
     end_date: str
 ) -> List[Dict[str, Any]]:
     """
-    Fetch price data for a given ticker and date range from an external API.
+    Fetches daily price data for a given ticker and date range from an external API.
+
+    Args:
+        ticker (str): The stock ticker symbol.
+        start_date (str): The start date for the price data in "YYYY-MM-DD" format.
+        end_date (str): The end date for the price data in "YYYY-MM-DD" format.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries, each containing date, open, close, high, low, and volume data.
+
+    Raises:
+        Exception: If the HTTP request fails (non-200 status code).
+        ValueError: If no price data is returned by the API.
     """
     headers = {"X-API-KEY": os.environ.get("FINANCIAL_DATASETS_API_KEY")}
     url = (
@@ -140,7 +199,14 @@ def fetch_prices(
 
 def convert_prices_to_dataframe(prices: List[Dict[str, Any]]) -> pd.DataFrame:
     """
-    Convert fetched price data into a pandas DataFrame.
+    Converts a list of price data dictionaries into a pandas DataFrame, 
+    setting the DateTime index and sorting by date.
+
+    Args:
+        prices (List[Dict[str, Any]]): The list of price data dictionaries.
+
+    Returns:
+        pd.DataFrame: DataFrame indexed by datetime, containing columns for open, close, high, low, and volume.
     """
     df = pd.DataFrame(prices)
     df["Date"] = pd.to_datetime(df["time"])
@@ -158,7 +224,16 @@ def fetch_price_data(
     end_date: str
 ) -> pd.DataFrame:
     """
-    Utility function that fetches raw price data, then converts it into a DataFrame.
+    Fetches raw price data for a given date range and converts it into a pandas DataFrame.
+
+    Args:
+        ticker (str): The stock ticker symbol.
+        start_date (str): The start date for the price data (YYYY-MM-DD).
+        end_date (str): The end date for the price data (YYYY-MM-DD).
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing the open, close, high, low, and volume data 
+                      indexed by date for the specified ticker and date range.
     """
     prices = fetch_prices(ticker, start_date, end_date)
     return convert_prices_to_dataframe(prices)

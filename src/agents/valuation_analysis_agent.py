@@ -9,14 +9,27 @@ from tools.api import (
     fetch_line_items,
 )
 
-
 ##### Valuation Analysis Agent #####
 def valuation_analysis_agent(state: TradingAgentState):
     """
     Performs a detailed valuation analysis using multiple methodologies:
+    
     1. Owner Earnings (Buffett Method)
-    2. DCF Valuation
-    Then compares both valuations to the market cap.
+    2. DCF (Discounted Cash Flow) Valuation
+    
+    The results are compared to the company's market cap to determine a 
+    valuation gap and an overall signal (bullish, neutral, or bearish).
+
+    Args:
+        state (TradingAgentState): The shared agent state containing metadata and data fields.
+            Relevant fields include:
+            - data["ticker"]: The stock ticker symbol.
+            - data["end_date"]: The date indicating the latest financial period to consider.
+            - data["analyst_signals"]: A dictionary to store signals from various analysts.
+            - metadata["show_reasoning"]: If True, prints reasoning to the console.
+
+    Returns:
+        Dict[str, Any]: A dictionary with updated "messages" and "data" after valuation analysis.
     """
     show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
@@ -30,7 +43,7 @@ def valuation_analysis_agent(state: TradingAgentState):
         ticker=data["ticker"],
         report_period=end_date,
         period="ttm",
-        max_results=1,  # Updated to match function signature
+        max_results=1,
     )
     metrics = financial_metrics[0]
 
@@ -45,10 +58,10 @@ def valuation_analysis_agent(state: TradingAgentState):
             "working_capital",
         ],
         period="ttm",
-        max_results=2,  # Updated to match function signature
+        max_results=2,
     )
     if len(financial_line_items) < 2:
-        # Just a safety check if the API doesn't return enough records
+        # Safety check if the API doesn't return enough records
         return {
             "messages": [],
             "data": data
@@ -160,10 +173,27 @@ def compute_owner_earnings_value(
     num_years: int = 5,
 ) -> float:
     """
-    Calculates the intrinsic value using Buffett's Owner Earnings method.
+    Calculates intrinsic value using Buffett's Owner Earnings method.
 
-    Owner Earnings = Net Income + Depreciation/Amortization
+    Owner Earnings = Net Income + Depreciation/Amortization 
                      - Capital Expenditures - Working Capital Changes
+
+    Then it projects owner earnings for `num_years` at a given growth_rate, 
+    discounts them at a required_return, computes a terminal value, and 
+    applies a margin of safety at the end.
+
+    Args:
+        net_income (float): The company's net income.
+        depreciation (float): Depreciation and amortization expense.
+        capex (float): Capital expenditures.
+        working_capital_change (float): Change in working capital between periods.
+        growth_rate (float, optional): Annual earnings growth rate. Defaults to 0.05 (5%).
+        required_return (float, optional): The discount rate or required rate of return. Defaults to 0.15.
+        margin_of_safety (float, optional): Fraction to reduce the intrinsic value by for safety. Defaults to 0.25.
+        num_years (int, optional): Number of projection years. Defaults to 5.
+
+    Returns:
+        float: The estimated intrinsic value per the Owner Earnings method.
     """
     if not all(
         isinstance(x, (int, float))
@@ -203,7 +233,18 @@ def compute_intrinsic_value(
     num_years: int = 5,
 ) -> float:
     """
-    Computes the discounted cash flow (DCF) for a given company.
+    Computes the discounted cash flow (DCF) value for a company 
+    using a multi-year projection plus terminal value.
+
+    Args:
+        free_cash_flow (float): The current or most recent FCF.
+        growth_rate (float, optional): Annualized growth rate for FCF. Defaults to 0.05 (5%).
+        discount_rate (float, optional): The discount rate or required rate of return. Defaults to 0.10 (10%).
+        terminal_growth_rate (float, optional): Growth rate used in terminal value calculations. Defaults to 0.02.
+        num_years (int, optional): Number of years to project FCF. Defaults to 5.
+
+    Returns:
+        float: The estimated intrinsic value based on the DCF model.
     """
     if not isinstance(free_cash_flow, (int, float)):
         return 0.0
@@ -220,7 +261,7 @@ def compute_intrinsic_value(
         for idx, cf in enumerate(projected_cf)
     ]
 
-    # 3. Calculate terminal value
+    # 3. Calculate terminal value (perpetuity with terminal_growth_rate)
     terminal_value = (
         projected_cf[-1] * (1 + terminal_growth_rate)
     ) / (discount_rate - terminal_growth_rate)
@@ -228,7 +269,7 @@ def compute_intrinsic_value(
         (1 + discount_rate) ** num_years
     )
 
-    # 4. Sum up the present values and terminal value
+    # 4. Sum up present values and terminal value
     return sum(present_values) + terminal_value_discounted
 
 
@@ -237,6 +278,13 @@ def compute_working_capital_change(
     previous_working_capital: float,
 ) -> float:
     """
-    Calculate the absolute change in working capital between two periods.
+    Calculates the absolute change in working capital between two periods.
+
+    Args:
+        current_working_capital (float): The current period's working capital.
+        previous_working_capital (float): The previous period's working capital.
+
+    Returns:
+        float: The difference (current - previous).
     """
     return current_working_capital - previous_working_capital

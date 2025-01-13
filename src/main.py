@@ -26,20 +26,36 @@ logger = logging.getLogger(__name__)
 
 def gather_market_data_agent(state: TradingAgentState) -> TradingAgentState:
     """
-    Placeholder agent that could fetch external data and incorporate it
-    into the 'data' field of the TradingAgentState.
+    Placeholder agent to fetch or validate market data and incorporate it 
+    into the 'data' field of the TradingAgentState. Currently, it simply returns
+    the state unchanged.
 
-    For demonstration, this function simply returns the state unchanged.
-    In a real system, you could fetch or validate data here.
+    In a production system, this could fetch fundamental or historical data 
+    that might not already be in 'data'.
+
+    Args:
+        state (TradingAgentState): The current shared state.
+
+    Returns:
+        TradingAgentState: Unmodified or updated state after fetching/validating market data.
     """
     logger.info("Gathering market data for ticker=%s", state["data"].get("ticker"))
-    # If needed, do actual data fetching or validation
+    # If needed, do actual data fetching or validation here
     return state
 
 
 def create_trading_workflow() -> StateGraph:
     """
     Creates and configures a multi-agent workflow (StateGraph) for trading decisions.
+
+    The workflow includes:
+    1. gather_market_data_agent
+    2. technical_analysis_agent
+    3. fundamental_analysis_agent
+    4. sentiment_analysis_agent
+    5. valuation_analysis_agent
+    6. risk_evaluation_agent
+    7. final_decision_agent
 
     Returns:
         StateGraph: A compiled StateGraph that defines the multi-agent process flow.
@@ -58,7 +74,7 @@ def create_trading_workflow() -> StateGraph:
     # Define data flow edges
     trading_workflow.set_entry_point("gather_market_data_agent")
 
-    # Example: gather_market_data_agent feeds four agents
+    # gather_market_data_agent feeds four agents
     trading_workflow.add_edge("gather_market_data_agent", "technical_analysis_agent")
     trading_workflow.add_edge("gather_market_data_agent", "fundamental_analysis_agent")
     trading_workflow.add_edge("gather_market_data_agent", "sentiment_analysis_agent")
@@ -87,21 +103,21 @@ def run_trading_system(
     show_reasoning: bool = False
 ) -> str:
     """
-    Orchestrates the multi-agent workflow: 
-    1) Gathers market data,
-    2) Runs technical/fundamental/sentiment/valuation analyses,
-    3) Evaluates risk,
-    4) Produces a final trading decision.
+    Orchestrates the multi-agent workflow:
+      1) Gathers market data,
+      2) Runs technical/fundamental/sentiment/valuation analyses,
+      3) Evaluates risk,
+      4) Produces a final trading decision.
 
     Args:
         ticker (str): Stock ticker (e.g., "AAPL").
         start_date (str): Start date in YYYY-MM-DD format.
         end_date (str): End date in YYYY-MM-DD format.
-        portfolio (dict): A dictionary representing the portfolio. Example: {"cash": 100_000, "stock": 0}.
-        show_reasoning (bool): Whether to show verbose agent reasoning logs.
+        portfolio (Dict[str, Any]): A dictionary representing the portfolio, e.g. {"cash": 100_000, "stock": 0}.
+        show_reasoning (bool, optional): Whether to show verbose agent reasoning logs. Defaults to False.
 
     Returns:
-        str: JSON string containing the final decision (e.g., {"action":"buy","quantity":10,"confidence":0.9}).
+        str: JSON string containing the final decision, e.g. {"action":"buy","quantity":10,"confidence":0.9}.
     """
     logger.info("Running trading system for ticker=%s from %s to %s", ticker, start_date, end_date)
 
@@ -131,15 +147,13 @@ def run_trading_system(
 
     except Exception as e:
         logger.error("Trading system workflow failed: %s", e, exc_info=True)
-        # Optionally raise or return a fallback JSON response
-        # For now, we raise a RuntimeError to signal failure
         raise RuntimeError("Trading system encountered an error.") from e
 
 
 def main() -> None:
     """
     CLI entry point for running the trading system in a single-run mode.
-    
+
     Example Usage:
         python main.py --ticker AAPL --show_reasoning
         python main.py --ticker TSLA --start-date 2023-01-01 --end-date 2023-04-01

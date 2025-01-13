@@ -9,10 +9,23 @@ from tools.api import fetch_insider_trades
 ##### Sentiment Analysis Agent #####
 def sentiment_analysis_agent(state: TradingAgentState):
     """
-    Analyzes market sentiment and generates trading signals.
-    Specifically looks at insider trades:
-    - Negative transaction_shares => 'bearish'
-    - Positive transaction_shares => 'bullish'
+    Analyzes market sentiment and generates trading signals based on insider trades.
+    
+    For each insider trade, if 'transaction_shares' is negative, it is considered bearish. 
+    If 'transaction_shares' is positive, it is considered bullish.
+
+    The final signal is 'bullish' if bullish trades > bearish trades, 
+    'bearish' if bearish trades > bullish trades, or 'neutral' otherwise.
+
+    Args:
+        state (TradingAgentState): The shared agent state which should include:
+            - data["ticker"]: Ticker symbol.
+            - data["end_date"]: Date through which to fetch insider data.
+            - data["analyst_signals"]: Dictionary to store this agent's results.
+            - metadata["show_reasoning"]: Boolean for printing reasoning to the console.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing updated "messages" and "data" after sentiment analysis.
     """
     data = state.get("data", {})
     show_reasoning = state["metadata"].get("show_reasoning", False)
@@ -26,7 +39,7 @@ def sentiment_analysis_agent(state: TradingAgentState):
     insider_trades = fetch_insider_trades(
         ticker=ticker,
         end_date=end_date,
-        max_results=5,  # Updated to match function signature
+        max_results=5,
     )
 
     # Convert transaction_shares to a Series, dropping NaN values

@@ -14,12 +14,25 @@ from tools.api import fetch_prices, convert_prices_to_dataframe
 ##### Technical Analysis Agent #####
 def technical_analysis_agent(state: TradingAgentState):
     """
-    A sophisticated technical analysis system that combines multiple trading strategies:
-    1. Trend Following
-    2. Mean Reversion
-    3. Momentum
-    4. Volatility Analysis
-    5. Statistical Arbitrage Signals
+    A technical analysis system that combines multiple trading strategies:
+      1. Trend Following
+      2. Mean Reversion
+      3. Momentum
+      4. Volatility Analysis
+      5. Statistical Arbitrage Signals
+
+    This agent fetches historical price data, computes signals for each strategy, 
+    then combines them using a weighted approach into a final signal and confidence score.
+
+    Args:
+        state (TradingAgentState): The shared agent state containing:
+            - data["ticker"]: The stock ticker symbol.
+            - data["start_date"], data["end_date"]: Date range for fetching historical prices.
+            - data["analyst_signals"]: A place to store the final combined signal.
+            - metadata["show_reasoning"]: Boolean indicating if we should log the reasoning.
+
+    Returns:
+        Dict[str, Any]: The updated state with a new message for technical analysis and new data fields.
     """
     show_reasoning = state["metadata"].get("show_reasoning", False)
     data = state["data"]
@@ -44,7 +57,7 @@ def technical_analysis_agent(state: TradingAgentState):
     volatility_signals = compute_volatility_signals(prices_df)
     stat_arb_signals = compute_stat_arb_signals(prices_df)
 
-    # 3. Combine signals using a weighted ensemble approach
+    # 3. Combine signals using a weighted ensemble
     strategy_weights = {
         "trend": 0.25,
         "mean_reversion": 0.20,
@@ -63,7 +76,7 @@ def technical_analysis_agent(state: TradingAgentState):
         strategy_weights,
     )
 
-    # 4. Generate detailed analysis report
+    # 4. Generate analysis report
     analysis_report = {
         "signal": combined_signal["signal"],
         "confidence_level": round(combined_signal["confidence"] * 100),
@@ -122,7 +135,11 @@ def technical_analysis_agent(state: TradingAgentState):
 ##### Helper Functions #####
 def compute_trend_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Advanced trend-following strategy using multiple timeframes and indicators
+    Implements a trend-following approach using exponential moving averages (EMA) 
+    and the Average Directional Index (ADX) to gauge trend direction and strength.
+
+    Returns a dictionary with a 'signal' (bullish, bearish, or neutral), 
+    a 'confidence' value (0 to 1), and a 'metrics' dict with computed indicator values.
     """
     ema_8 = compute_ema(prices_df, 8)
     ema_21 = compute_ema(prices_df, 21)
@@ -155,7 +172,13 @@ def compute_trend_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
 
 def compute_mean_reversion_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Mean reversion strategy using Bollinger Bands and z-score
+    Uses Bollinger Bands, RSI, and a z-score to detect mean-reversion opportunities.
+
+    If the price is significantly below the lower band (z-score < -2), 
+    it indicates a potential bullish mean-reversion. If it's above the upper band, 
+    it might indicate a bearish mean-reversion.
+
+    Returns a dict with a 'signal', 'confidence', and 'metrics'.
     """
     ma_50 = prices_df["close"].rolling(window=50).mean()
     std_50 = prices_df["close"].rolling(window=50).std()
@@ -196,7 +219,10 @@ def compute_mean_reversion_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
 
 def compute_momentum_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Multi-factor momentum strategy
+    Computes momentum-based signals using short-term (1-month), mid-term (3-month), 
+    and longer-term (6-month) returns, along with volume-based confirmation.
+
+    Returns a dict with a 'signal', 'confidence', and 'metrics'.
     """
     returns = prices_df["close"].pct_change()
     mom_1m = returns.rolling(21).sum()
@@ -233,7 +259,10 @@ def compute_momentum_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
 
 def compute_volatility_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Volatility-based trading strategy
+    Evaluates market volatility using historical volatility, 
+    ATR (Average True Range), and a z-score approach.
+
+    Returns a dict with a 'signal', 'confidence', and 'metrics' for volatility.
     """
     returns = prices_df["close"].pct_change()
 
@@ -272,7 +301,10 @@ def compute_volatility_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
 
 def compute_stat_arb_signals(prices_df: pd.DataFrame) -> Dict[str, Any]:
     """
-    Statistical arbitrage signals based on price action analysis
+    Performs a simplistic statistical arbitrage check using skewness, kurtosis, 
+    and the Hurst exponent to gauge whether the market is trending or mean-reverting.
+
+    Returns a dict with a final 'signal', 'confidence', and 'metrics'.
     """
     returns = prices_df["close"].pct_change()
     skew = returns.rolling(63).skew()
@@ -305,7 +337,15 @@ def combine_signals_weighted(
     weights: Dict[str, float]
 ) -> Dict[str, Any]:
     """
-    Combine multiple trading signals using a weighted approach
+    Combines multiple strategy signals into one final signal using a weighted average approach.
+
+    Args:
+        signals (Dict[str, Dict[str, Any]]): 
+            A dictionary of strategy names mapped to signal dicts with 'signal' and 'confidence'.
+        weights (Dict[str, float]): Weights to assign to each strategy (must sum to 1 or less).
+
+    Returns:
+        Dict[str, Any]: A dictionary with the final 'signal' and a 'confidence' measure (0 to 1).
     """
     signal_values = {"bullish": 1, "neutral": 0, "bearish": -1}
     weighted_sum = 0.0
@@ -338,7 +378,18 @@ def combine_signals_weighted(
 
 
 def normalize_pandas_object(obj: Any) -> Any:
-    """Convert pandas Series/DataFrames to primitive Python types."""
+    """
+    Converts pandas objects (DataFrame, Series) to native Python structures
+    so they can be JSON serialized easily. 
+
+    If the object is already a primitive type, it is returned as-is.
+
+    Args:
+        obj (Any): Object to be converted.
+
+    Returns:
+        Any: Primitive Python structure (dict, list, or single value).
+    """
     if isinstance(obj, pd.Series):
         return obj.tolist()
     elif isinstance(obj, pd.DataFrame):
@@ -351,7 +402,16 @@ def normalize_pandas_object(obj: Any) -> Any:
 
 
 def compute_rsi(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """Compute Relative Strength Index (RSI)."""
+    """
+    Computes the Relative Strength Index (RSI) for a given lookback period.
+
+    Args:
+        prices_df (pd.DataFrame): DataFrame containing historical price data.
+        period (int, optional): The number of periods to average over for RSI. Defaults to 14.
+
+    Returns:
+        pd.Series: A series of RSI values indexed by date.
+    """
     delta = prices_df["close"].diff()
     gain = (delta.where(delta > 0, 0)).fillna(0)
     loss = (-delta.where(delta < 0, 0)).fillna(0)
@@ -365,7 +425,16 @@ def compute_rsi(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
 def compute_bollinger_bands(
     prices_df: pd.DataFrame, window: int = 20
 ) -> tuple[pd.Series, pd.Series]:
-    """Compute Bollinger Bands for a given rolling window."""
+    """
+    Computes Bollinger Bands for a specified rolling window. 
+
+    Args:
+        prices_df (pd.DataFrame): DataFrame containing 'close' prices.
+        window (int, optional): Rolling window length. Defaults to 20.
+
+    Returns:
+        tuple[pd.Series, pd.Series]: The upper and lower Bollinger Bands.
+    """
     sma = prices_df["close"].rolling(window).mean()
     std_dev = prices_df["close"].rolling(window).std()
     upper_band = sma + (std_dev * 2)
@@ -374,12 +443,30 @@ def compute_bollinger_bands(
 
 
 def compute_ema(prices_df: pd.DataFrame, window: int) -> pd.Series:
-    """Compute Exponential Moving Average (EMA)."""
+    """
+    Computes the Exponential Moving Average (EMA) over a given window.
+
+    Args:
+        prices_df (pd.DataFrame): DataFrame with historical price data (must have 'close').
+        window (int): The EMA window size.
+
+    Returns:
+        pd.Series: A series of EMA values indexed by date.
+    """
     return prices_df["close"].ewm(span=window, adjust=False).mean()
 
 
 def compute_adx(prices_df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
-    """Compute Average Directional Index (ADX)."""
+    """
+    Computes the Average Directional Index (ADX) to measure trend strength.
+
+    Args:
+        prices_df (pd.DataFrame): DataFrame with columns ['high', 'low', 'close'].
+        period (int, optional): Lookback for ADX. Defaults to 14.
+
+    Returns:
+        pd.DataFrame: DataFrame with columns ['adx', '+di', '-di'].
+    """
     prices_df["high_low"] = prices_df["high"] - prices_df["low"]
     prices_df["high_close"] = abs(prices_df["high"] - prices_df["close"].shift())
     prices_df["low_close"] = abs(prices_df["low"] - prices_df["close"].shift())
@@ -416,7 +503,16 @@ def compute_adx(prices_df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
 
 
 def compute_atr(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """Compute Average True Range (ATR)."""
+    """
+    Computes the Average True Range (ATR) for a given period. 
+
+    Args:
+        prices_df (pd.DataFrame): DataFrame with 'high', 'low', 'close' columns.
+        period (int, optional): Rolling window size for ATR. Defaults to 14.
+
+    Returns:
+        pd.Series: The ATR values indexed by date.
+    """
     high_low = prices_df["high"] - prices_df["low"]
     high_close = abs(prices_df["high"] - prices_df["close"].shift())
     low_close = abs(prices_df["low"] - prices_df["close"].shift())
@@ -428,10 +524,18 @@ def compute_atr(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 def compute_hurst_exponent(price_series: pd.Series, max_lag: int = 20) -> float:
     """
-    Compute Hurst Exponent to detect long-term memory in a time series.
-    H < 0.5 => Mean-reverting
-    H = 0.5 => Random walk
-    H > 0.5 => Trending
+    Computes the Hurst Exponent to detect long-term memory in a time series.
+
+    - H < 0.5 => Mean-reverting
+    - H = 0.5 => Random walk
+    - H > 0.5 => Trending
+
+    Args:
+        price_series (pd.Series): The historical price series.
+        max_lag (int, optional): Maximum lag for computing the exponent. Defaults to 20.
+
+    Returns:
+        float: The Hurst exponent.
     """
     lags = range(2, max_lag)
     tau = []

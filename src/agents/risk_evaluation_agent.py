@@ -10,6 +10,21 @@ from tools.api import convert_prices_to_dataframe, fetch_prices
 def risk_evaluation_agent(state: TradingAgentState):
     """
     Evaluates portfolio risk and sets position limits based on a comprehensive risk analysis.
+
+    This agent calculates various risk metrics (volatility, VaR, max drawdown), 
+    conducts stress tests, then determines a maximum position size and a risk-based 
+    "trading_action" suggestion (like 'reduce' or 'hold').
+
+    Args:
+        state (TradingAgentState): The shared agent state, which should include:
+            - data["ticker"]: The stock ticker symbol.
+            - data["start_date"], data["end_date"]: Date range for fetching historical prices.
+            - data["portfolio"]: Current portfolio state, used to compute total portfolio value.
+            - data["analyst_signals"]: Dictionary to store the resulting risk signals.
+            - metadata["show_reasoning"]: Boolean indicating if detailed reasoning should be printed.
+
+    Returns:
+        Dict[str, Any]: The updated state with new risk evaluation messages and data fields.
     """
     show_reasoning = state["metadata"].get("show_reasoning", False)
     data = state["data"]
@@ -29,8 +44,7 @@ def risk_evaluation_agent(state: TradingAgentState):
     )
     prices_df = convert_prices_to_dataframe(prices)
 
-    # Fetch messages from other agents
-    # (They must exist in state["messages"], or handle exceptions.)
+    # Fetch messages from other agents (technical, fundamental, sentiment)
     technical_message = next(
         (msg for msg in state["messages"] if msg.name == "technical_analysis_agent"), None
     )
@@ -41,7 +55,7 @@ def risk_evaluation_agent(state: TradingAgentState):
         (msg for msg in state["messages"] if msg.name == "sentiment_analysis_agent"), None
     )
 
-    # Parse content
+    # Helper parser
     def robust_parse(msg):
         if not msg:
             return {}
@@ -121,7 +135,7 @@ def risk_evaluation_agent(state: TradingAgentState):
 
     # 5. Risk-Adjusted Signals Analysis
     def parse_confidence(conf_str: str) -> float:
-        # Expects something like "50%" or numeric str
+        # Converts a confidence string like "50%" to 0.5, or numeric string to float
         if conf_str.endswith("%"):
             return float(conf_str.replace("%", "")) / 100.0
         try:
@@ -137,7 +151,7 @@ def risk_evaluation_agent(state: TradingAgentState):
 
     # Check for signal divergence (increased uncertainty if all three differ)
     signals_set = set(signal.get("signal", "") for signal in agent_signals.values())
-    # If you have 3 different signals (bullish, neutral, bearish), that's major divergence
+    # If 3 different signals (bullish, neutral, bearish), that's major divergence
     signal_divergence = 2 if len(signals_set) == 3 else 0
 
     risk_score = market_risk_score * 2  # Market risk can be up to ~6 points
@@ -147,7 +161,7 @@ def risk_evaluation_agent(state: TradingAgentState):
     # Cap risk score at 10
     risk_score = min(round(risk_score), 10)
 
-    # 6. Generate Trading Action (for illustration)
+    # 6. Generate Trading Action (illustration)
     if risk_score >= 8:
         trading_action = "hold"
     elif risk_score >= 6:

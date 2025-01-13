@@ -7,8 +7,18 @@ from tools.api import fetch_financial_metrics
 ##### Fundamental Analysis Agent #####
 def fundamental_analysis_agent(state: TradingAgentState):
     """
-    Analyzes fundamental data (profitability, growth, financial health, price ratios)
-    and generates trading signals.
+    Analyzes fundamental data (profitability, growth, financial health, and price ratios)
+    to generate a trading signal.
+
+    Args:
+        state (TradingAgentState): The shared agent state, which should include:
+            - data["ticker"]: The stock ticker.
+            - data["end_date"]: The date for fetching the latest financial metrics.
+            - data["analyst_signals"]: A dictionary to store fundamental signals.
+            - metadata["show_reasoning"]: If True, prints detailed reasoning.
+
+    Returns:
+        Dict[str, Any]: The updated state with a fundamental analysis message and updated data.
     """
     show_reasoning = state["metadata"].get("show_reasoning", False)
     data = state["data"]
@@ -38,7 +48,7 @@ def fundamental_analysis_agent(state: TradingAgentState):
     net_margin = metrics.get("net_margin")
     operating_margin = metrics.get("operating_margin")
 
-    # The thresholds for "good" metrics
+    # Thresholds for "good" metrics
     thresholds_p = [
         (return_on_equity, 0.15),  # e.g., strong ROE above 15%
         (net_margin, 0.20),       # healthy net margins
@@ -134,10 +144,6 @@ def fundamental_analysis_agent(state: TradingAgentState):
     ps_ratio = metrics.get("price_to_sales_ratio")
 
     # We'll consider "lower = better" approach for these ratios
-    # If the ratio is above a threshold => it's 'expensive'
-    # We'll invert the logic: if ratio < threshold => "bullish" else => "bearish/neutral"
-    # E.g. P/E < 25, P/B < 3, P/S < 5 might be "reasonable"
-
     price_ratios_score = 0
     if pe_ratio and pe_ratio < 25:
         price_ratios_score += 1
@@ -146,7 +152,6 @@ def fundamental_analysis_agent(state: TradingAgentState):
     if ps_ratio and ps_ratio < 5:
         price_ratios_score += 1
 
-    # We'll say if at least 2 pass => bullish
     if price_ratios_score >= 2:
         price_ratios_signal = "bullish"
     elif price_ratios_score == 0:
@@ -173,8 +178,8 @@ def fundamental_analysis_agent(state: TradingAgentState):
     else:
         overall_signal = "neutral"
 
-    # We'll define a confidence based on how many of our sub-signals are
-    # "bullish" or "bearish" vs neutral.
+    # We'll define a confidence based on how many of our sub-signals are 
+    # "bullish" or "bearish" vs. neutral.
     total_signals = len(analysis_signals)
     if total_signals > 0:
         confidence = max(bullish_signals, bearish_signals) / total_signals

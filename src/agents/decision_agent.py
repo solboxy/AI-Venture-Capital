@@ -8,9 +8,21 @@ from graph.state import TradingAgentState, show_agent_reasoning
 ##### Final Decision Agent #####
 def final_decision_agent(state: TradingAgentState):
     """
-    Makes final trading decisions and generates orders.
-    """
+    Makes the final trading decision and generates the order parameters 
+    (action: buy/sell/hold, quantity, confidence, reasoning).
 
+    This agent consolidates outputs from all other agents (technical, fundamental, 
+    sentiment, valuation, and risk evaluations) to produce a single decision.
+
+    Args:
+        state (TradingAgentState): The shared agent state containing metadata and data fields.
+            - data["portfolio"]: A dictionary describing the current portfolio state.
+            - data["analyst_signals"]: A dictionary of signals from prior agents.
+            - metadata["show_reasoning"]: Boolean indicating if we should print out reasoning.
+
+    Returns:
+        Dict[str, Any]: The updated state with the final decision message appended to "messages".
+    """
     # Extract the data
     data = state["data"]
     portfolio = data["portfolio"]
@@ -27,9 +39,9 @@ def final_decision_agent(state: TradingAgentState):
 
                 Provide the following in your output:
                 - "action": "buy" | "sell" | "hold",
-                - "quantity": <positive integer>
-                - "confidence": <float between 0 and 1>
-                - "reasoning": <concise explanation of the decision including how you weighted the signals>
+                - "quantity": <positive integer>,
+                - "confidence": <float between 0 and 1>,
+                - "reasoning": <concise explanation of the decision, including how signals were weighted>
 
                 Trading Rules:
                 - Only buy if you have available cash
