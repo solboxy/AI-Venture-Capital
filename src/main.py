@@ -27,20 +27,25 @@ logger = logging.getLogger(__name__)
 def gather_market_data_agent(state: TradingAgentState) -> TradingAgentState:
     """
     Placeholder agent to fetch or validate market data and incorporate it 
-    into the 'data' field of the TradingAgentState. Currently, it simply returns
-    the state unchanged.
-
-    In a production system, this could fetch fundamental or historical data 
-    that might not already be in 'data'.
+    into the 'data' field of the TradingAgentState. In production, replace
+    the placeholder code with a real data-fetching process (e.g., from an API).
 
     Args:
-        state (TradingAgentState): The current shared state.
+        state (TradingAgentState): The current shared state containing 'data'.
 
     Returns:
-        TradingAgentState: Unmodified or updated state after fetching/validating market data.
+        TradingAgentState: The state updated with newly fetched/validated data.
     """
-    logger.info("Gathering market data for ticker=%s", state["data"].get("ticker"))
-    # If needed, do actual data fetching or validation here
+    ticker = state["data"].get("ticker")
+    if not ticker:
+        raise ValueError("No ticker specified; cannot fetch market data.")
+
+    logger.info("Gathering market data for ticker=%s", ticker)
+    # ======= Replace with Real Data-Fetching Logic =======
+    # For example:
+    # market_data = fetch_market_data(ticker, ...)
+    # state["data"]["market_data"] = market_data
+    # ============================================
     return state
 
 
@@ -80,7 +85,7 @@ def create_trading_workflow() -> StateGraph:
     trading_workflow.add_edge("gather_market_data_agent", "sentiment_analysis_agent")
     trading_workflow.add_edge("gather_market_data_agent", "valuation_analysis_agent")
 
-    # All feed into the risk evaluation
+    # All feed into risk evaluation
     trading_workflow.add_edge("technical_analysis_agent", "risk_evaluation_agent")
     trading_workflow.add_edge("fundamental_analysis_agent", "risk_evaluation_agent")
     trading_workflow.add_edge("sentiment_analysis_agent", "risk_evaluation_agent")
@@ -103,23 +108,36 @@ def run_trading_system(
     show_reasoning: bool = False
 ) -> str:
     """
-    Orchestrates the multi-agent workflow:
-      1) Gathers market data,
-      2) Runs technical/fundamental/sentiment/valuation analyses,
-      3) Evaluates risk,
+    Orchestrates the multi-agent workflow to produce a trading decision:
+      1) Gathers market data
+      2) Runs technical, fundamental, sentiment, valuation analyses
+      3) Evaluates risk
       4) Produces a final trading decision.
 
     Args:
         ticker (str): Stock ticker (e.g., "AAPL").
         start_date (str): Start date in YYYY-MM-DD format.
         end_date (str): End date in YYYY-MM-DD format.
-        portfolio (Dict[str, Any]): A dictionary representing the portfolio, e.g. {"cash": 100_000, "stock": 0}.
-        show_reasoning (bool, optional): Whether to show verbose agent reasoning logs. Defaults to False.
+        portfolio (Dict[str, Any]): Current portfolio (e.g., {"cash": 100_000, "stock": 0}).
+        show_reasoning (bool, optional): Whether to show verbose agent reasoning logs.
 
     Returns:
         str: JSON string containing the final decision, e.g. {"action":"buy","quantity":10,"confidence":0.9}.
     """
-    logger.info("Running trading system for ticker=%s from %s to %s", ticker, start_date, end_date)
+    if not ticker:
+        raise ValueError("A valid ticker is required to run the trading system.")
+
+    logger.info("Running trading system for %s from %s to %s", ticker, start_date, end_date)
+
+    try:
+        datetime.strptime(start_date, "%Y-%m-%d")
+        datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError as ve:
+        raise ValueError("Invalid date format. Use 'YYYY-MM-DD'.") from ve
+
+    # Ensure portfolio has at least the mandatory fields
+    if "cash" not in portfolio or "stock" not in portfolio:
+        raise ValueError("Portfolio must contain 'cash' and 'stock' fields.")
 
     trading_app = create_trading_workflow()  # Build the multi-agent workflow
 
@@ -141,7 +159,6 @@ def run_trading_system(
                 },
             },
         )
-        # Return the final agent's output in JSON format
         logger.info("Trading system workflow completed successfully.")
         return final_state["messages"][-1].content
 
@@ -154,7 +171,7 @@ def main() -> None:
     """
     CLI entry point for running the trading system in a single-run mode.
 
-    Example Usage:
+    Usage Examples:
         python main.py --ticker AAPL --show_reasoning
         python main.py --ticker TSLA --start-date 2023-01-01 --end-date 2023-04-01
     """
@@ -172,14 +189,14 @@ def main() -> None:
     if not args.start_date:
         try:
             end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
+            start_date = (end_date_obj - relativedelta(months=3)).strftime("%Y-%m-%d")
         except ValueError as ve:
             logger.error("Invalid end date format '%s': %s", end_date, ve)
             return
-        start_date = (end_date_obj - relativedelta(months=3)).strftime("%Y-%m-%d")
     else:
         start_date = args.start_date
 
-    # Example portfolio
+    # Example portfolio – in production, load from a config or user input
     portfolio_example = {
         "cash": 100_000.0,
         "stock": 0

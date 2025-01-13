@@ -1,4 +1,3 @@
-# backtester.py
 import argparse
 import json
 import logging
@@ -130,7 +129,7 @@ class TradingBacktester:
             decision = json.loads(agent_output)
             action = decision.get("action", "hold")
             quantity = decision.get("quantity", 0)
-            return action, int(quantity)
+            return action.lower(), int(quantity)
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(
                 "Failed to parse agent decision. Defaulting to HOLD.\nAgent Output: %s\nError: %s",
@@ -185,7 +184,7 @@ class TradingBacktester:
                 return quantity
             return 0
 
-        # Either "hold" or invalid action => no change
+        # "hold" or invalid action => no change
         return 0
 
     def run_agent_backtest(self) -> None:
@@ -224,11 +223,12 @@ class TradingBacktester:
             # 2) Parse the decision (action, quantity)
             action, quantity = self.parse_agent_decision(agent_output)
 
-            # 3) Get the current price (if no data, skip)
+            # 3) Get the current price
             df = fetch_price_data(self.ticker, lookback_start, current_str)
             if df.empty:
-                # No price data for this date, skip
+                logger.warning("No price data for %s on %s. Skipping trade.", self.ticker, current_str)
                 continue
+
             current_price = df.iloc[-1]["close"]
 
             # 4) Execute the trade
