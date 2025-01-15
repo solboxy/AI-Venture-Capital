@@ -1,4 +1,4 @@
-<img width="1060" alt="Screenshot" src=https://raw.githubusercontent.com/solboxy/AI-Venture-Capital/refs/heads/main/imgs/BloomBan.png" />
+<img width="1060" alt="Screenshot" src="https://raw.githubusercontent.com/solboxy/AI-Venture-Capital/refs/heads/main/imgs/BloomBan.png" />
 
 # Bloom AI
 
