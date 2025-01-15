@@ -1,4 +1,6 @@
-# AI Venture Fund
+<img width="1060" alt="Screenshot" src=https://raw.githubusercontent.com/solboxy/AI-Venture-Capital/refs/heads/main/imgs/BloomBan.png" />
+
+# Bloom AI
 
 An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, and execute investment opportunities. This system is powered by a collaborative network of specialized agents:
 
