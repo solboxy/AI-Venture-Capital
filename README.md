@@ -11,7 +11,7 @@ An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, 
 
 ---
 
-<img width="1060" alt="Screenshot" src="https://github.com/user-attachments/assets/4611aace-27d0-43b2-9a70-385b40336e3f" />
+<img width="1060" alt="Screenshot" src="https://raw.githubusercontent.com/solboxy/AI-Venture-Capital/refs/heads/main/imgs/githubgraph-01.png" />
 
 ## Key Features
 
