@@ -104,7 +104,7 @@ poetry run python src/main.py --ticker "AAPL" --start-date 2024-01-01 --end-date
 **Docker:**
 
 ```bash
-docker run -it ai-venture-fund --ticker "AAPL" --start-date 2024-01-01 --end-date 2024-06-30
+docker run -it ai-vc-fund --ticker "AAPL" --start-date 2024-01-01 --end-date 2024-06-30
 ```
 
 **Example Output:**
@@ -172,7 +172,7 @@ Recommendation: Invest $300,000
 ## Project Layout
 
 ```
-ai-venture-fund/
+ai-vc-fund/
 ├── src/
 |   |
 |   ├── graph/
