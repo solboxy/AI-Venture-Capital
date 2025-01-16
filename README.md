@@ -80,13 +80,13 @@ FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 1. Build the Docker image:
 
    ```bash
-   docker build -t ai-venture-fund .
+   docker build -t ai-vc-fund .
    ```
 
 2. Run the Docker container:
 
    ```bash
-   docker run -it ai-venture-fund
+   docker run -it ai-vc-fund
    ```
 
 ## Usage
