@@ -37,8 +37,8 @@ An AI-driven venture fund leveraging cutting-edge agents to identify, evaluate, 
 Clone the repository:
 
 ```bash
-git clone https://github.com/your-repo/ai-venture-fund.git
-cd ai-venture-fund
+git clone https://github.com/solboxy/Bloom-AI.git
+cd ai-vc-fund
 ```
 
 ### Installation Using Poetry
